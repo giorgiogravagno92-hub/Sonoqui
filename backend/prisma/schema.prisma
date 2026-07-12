@@ -1,0 +1,101 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  role         String          // "WORKER", "COMPANY", "ADMIN"
+  createdAt    DateTime        @default(now())
+  workerProfile WorkerProfile?
+  companyProfile CompanyProfile?
+  notifications Notification[]
+}
+
+model WorkerProfile {
+  id                   String             @id @default(uuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName            String
+  lastName             String
+  photoUrl             String?
+  city                 String
+  province             String
+  region               String
+  profession           String
+  specialization       String?
+  experienceYears      Int
+  educationLevel       String             @default("NESSUNO") // "NESSUNO", "LICENZA_MEDIA", "DIPLOMA", "LAUREA"
+  educationField       String?            // Specific diploma or degree
+  skills               String             // Comma-separated list of skills
+  certifications       String?            // Comma-separated list of certifications
+  hasLicense           Boolean            @default(false)
+  hasCar               Boolean            @default(false)
+  availabilityStatus   String             // "DISPONIBILE_SUBITO", "VALUTO_OFFERTE", "NON_DISPONIBILE"
+  availabilityDetails  String?            // e.g. "Lun-Ven, Mattina"
+  maxDistanceKm        Int                @default(50)
+  desiredContract      String             // e.g. "TEMPO_INDETERMINATO", "PART_TIME", "APPRENDISTATO"
+  desiredSalary        String?            // Optional salary range or figure
+  cvPdfUrl             String?
+  videoPresentationUrl String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  favoritedBy          Favorite[]
+  interviewRequests    InterviewRequest[]
+}
+
+model CompanyProfile {
+  id                String             @id @default(uuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName       String
+  industry          String
+  city              String
+  contactPerson     String
+  contactPhone      String?
+  logoUrl           String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  favorites         Favorite[]
+  interviewRequests InterviewRequest[]
+}
+
+model Favorite {
+  id              String         @id @default(uuid())
+  companyId       String
+  company         CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId        String
+  worker          WorkerProfile  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+
+  @@unique([companyId, workerId])
+}
+
+model InterviewRequest {
+  id            String         @id @default(uuid())
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId      String
+  worker        WorkerProfile  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  message       String
+  interviewDate String
+  status        String         // "PENDING", "ACCEPTED", "DECLINED"
+  createdAt     DateTime       @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  type      String   // "PROFILE_VIEW", "MESSAGE", "INTERVIEW_REQUEST", "EXPIRING_AVAILABILITY"
+  createdAt DateTime @default(now())
+}
