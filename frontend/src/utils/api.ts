@@ -18,11 +18,9 @@ if (!localStorage.getItem('sono_qui_mock_initialized')) {
       firstName: 'Mario',
       lastName: 'Rossi',
       profession: 'Elettricista',
-      specialization: 'Impianti Civili e Industriali',
       city: 'Roma',
       province: 'RM',
       region: 'Lazio',
-      experienceYears: 8,
       educationLevel: 'DIPLOMA',
       educationField: 'Istituto Tecnico Elettronico',
       skills: 'Domotica, Cablaggio, Quadri Elettrici, Ricerca Guasti, Certificazioni di Conformità',
@@ -33,18 +31,36 @@ if (!localStorage.getItem('sono_qui_mock_initialized')) {
       maxDistanceKm: 40,
       desiredContract: 'TEMPO_INDETERMINATO',
       desiredSalary: '€1.800 - €2.200 netti/mese',
-      photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=60'
+      photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=60',
+      workExperiences: [
+        {
+          id: 'exp1-1',
+          companyName: 'Elettra s.r.l.',
+          role: 'Elettricista Impiantista',
+          startDate: '2018-05',
+          endDate: '2022-12',
+          description: 'Cablaggio quadri elettrici industriali e collaudo impianti civili.',
+          city: 'Roma'
+        },
+        {
+          id: 'exp1-2',
+          companyName: 'Tech Volt S.p.A.',
+          role: 'Capo Squadra Elettricisti',
+          startDate: '2023-01',
+          endDate: '2026-06',
+          description: 'Gestione cantiere, direzione di una squadra di 5 persone e coordinamento manutenzioni straordinarie.',
+          city: 'Roma'
+        }
+      ]
     },
     {
       id: 'w2',
       firstName: 'Luigi',
       lastName: 'Verdi',
       profession: 'Sviluppatore Web',
-      specialization: 'Frontend Specialist (React)',
       city: 'Milano',
       province: 'MI',
       region: 'Lombardia',
-      experienceYears: 3,
       educationLevel: 'LAUREA',
       educationField: 'Ingegneria Informatica',
       skills: 'JavaScript, TypeScript, React, HTML5, CSS3, Vite, Git, Tailwind CSS',
@@ -55,18 +71,36 @@ if (!localStorage.getItem('sono_qui_mock_initialized')) {
       maxDistanceKm: 30,
       desiredContract: 'TEMPO_INDETERMINATO',
       desiredSalary: 'RAL €35.000',
-      photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=60'
+      photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=60',
+      workExperiences: [
+        {
+          id: 'exp2-1',
+          companyName: 'Web Agency Milano',
+          role: 'Junior Frontend Developer',
+          startDate: '2023-02',
+          endDate: '2024-08',
+          description: 'Sviluppo interfacce in HTML, CSS e Javascript. Supporto al team senior.',
+          city: 'Milano'
+        },
+        {
+          id: 'exp2-2',
+          companyName: 'Digital Factory',
+          role: 'Frontend Developer (React)',
+          startDate: '2024-09',
+          endDate: '2026-07',
+          description: 'Responsabile dello sviluppo frontend di piattaforme e-commerce con React e Next.js.',
+          city: 'Milano'
+        }
+      ]
     },
     {
       id: 'w3',
       firstName: 'Elena',
       lastName: 'Bianchi',
       profession: 'Addetta Vendite',
-      specialization: 'Abbigliamento e Retail',
       city: 'Torino',
       province: 'TO',
       region: 'Piemonte',
-      experienceYears: 2,
       educationLevel: 'DIPLOMA',
       educationField: 'Liceo delle Scienze Umane',
       skills: 'Assistenza Clienti, Visual Merchandising, Gestione Cassa, Inventario, Problem Solving',
@@ -77,7 +111,18 @@ if (!localStorage.getItem('sono_qui_mock_initialized')) {
       maxDistanceKm: 25,
       desiredContract: 'PART_TIME',
       desiredSalary: '€1.000 - €1.200/mese',
-      photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=60'
+      photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=60',
+      workExperiences: [
+        {
+          id: 'exp3-1',
+          companyName: 'Moda & Stile',
+          role: 'Commessa Addetta Vendite',
+          startDate: '2024-03',
+          endDate: '2025-11',
+          description: 'Accoglienza clienti, gestione cassa e riordino merce nel reparto abbigliamento.',
+          city: 'Torino'
+        }
+      ]
     }
   ]);
   setMockData('wp_pages', {
@@ -173,9 +218,25 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
   }
 
   if (path.startsWith('/auth/register')) {
-    const { email, role } = body;
+    const { email, role, profileData } = body;
     const mockUser = { id: `u-${Math.random()}`, email, role };
     localStorage.setItem('sono_qui_token', 'mock-jwt-token-1234');
+    if (role === 'COMPANY') {
+      setMockData('company_profile', {
+        companyType: profileData?.companyType || 'AZIENDA',
+        companyName: profileData?.companyName || null,
+        address: profileData?.address || null,
+        vatNumber: profileData?.vatNumber || null,
+        firstName: profileData?.firstName || null,
+        lastName: profileData?.lastName || null,
+        residenzaCapCitta: profileData?.residenzaCapCitta || null,
+        fiscalCode: profileData?.fiscalCode || null,
+        industry: 'Altro',
+        city: profileData?.companyType === 'AZIENDA' ? 'Roma' : (profileData?.residenzaCapCitta || 'Roma'),
+        contactPerson: profileData?.companyType === 'AZIENDA' ? 'Referente' : `${profileData?.firstName} ${profileData?.lastName}`,
+        contactPhone: null
+      });
+    }
     return { token: 'mock-jwt-token-1234', user: mockUser };
   }
 
@@ -187,7 +248,26 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
 
   if (path.startsWith('/workers/profile')) {
     if (method === 'GET') {
-      return getMockData('workers', [])[0] || { firstName: 'Mario', lastName: 'Rossi', availabilityStatus: 'DISPONIBILE_SUBITO', profession: 'Elettricista', city: 'Roma', province: 'RM', region: 'Lazio', experienceYears: 8, skills: 'Elettricità' };
+      const defaultWorker = {
+        id: 'w1',
+        firstName: 'Mario',
+        lastName: 'Rossi',
+        profession: 'Elettricista',
+        city: 'Roma',
+        province: 'Roma',
+        sigla: 'RM',
+        region: 'Lazio',
+        educationLevel: 'NESSUNO',
+        educationField: '',
+        educationTitles: '[]',
+        skills: '{"computerSkills":{},"organizationalSkills":{}}',
+        availabilityStatus: 'DISPONIBILE_PROPOSTE',
+        availabilityRegionsProvinces: '[]',
+        availabilityContracts: '[]',
+        notes: '',
+        workExperiences: []
+      };
+      return getMockData('workers', [defaultWorker])[0];
     }
     if (method === 'PUT') {
       const workers = getMockData('workers', []);
@@ -205,9 +285,31 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
       workers[0].city = body.city || workers[0].city;
       workers[0].maxDistanceKm = Number(body.maxDistanceKm) || workers[0].maxDistanceKm;
       workers[0].availabilityDetails = body.availabilityDetails || '';
+      workers[0].availabilityRegionsProvinces = body.availabilityRegionsProvinces || workers[0].availabilityRegionsProvinces || '[]';
+      workers[0].availabilityContracts = body.availabilityContracts || workers[0].availabilityContracts || '[]';
+      workers[0].notes = body.notes || workers[0].notes || '';
     }
     setMockData('workers', workers);
     return { success: true, availabilityStatus: body.status, profile: workers[0] };
+  }
+
+  if (path.startsWith('/companies/profile')) {
+    if (method === 'GET') {
+      return getMockData('company_profile', {
+        companyType: 'AZIENDA',
+        companyName: 'Innovate Tech S.p.A.',
+        industry: 'Tecnologia & Software',
+        city: 'Milano',
+        contactPerson: 'Ing. Alessandro Bianchi',
+        contactPhone: '+39 02 1234567'
+      });
+    }
+    if (method === 'PUT') {
+      const current = getMockData('company_profile', {});
+      const updated = { ...current, ...body };
+      setMockData('company_profile', updated);
+      return updated;
+    }
   }
 
   if (path.startsWith('/companies/search')) {

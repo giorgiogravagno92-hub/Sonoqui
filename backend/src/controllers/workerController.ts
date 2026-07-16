@@ -6,7 +6,8 @@ const prisma = new PrismaClient();
 export const getProfile = async (req: any, res: Response) => {
   try {
     const profile = await prisma.workerProfile.findUnique({
-      where: { userId: req.user.id }
+      where: { userId: req.user.id },
+      include: { workExperiences: true }
     });
 
     if (!profile) {
@@ -29,8 +30,6 @@ export const updateProfile = async (req: any, res: Response) => {
       province,
       region,
       profession,
-      specialization,
-      experienceYears,
       educationLevel,
       educationField,
       skills,
@@ -42,8 +41,21 @@ export const updateProfile = async (req: any, res: Response) => {
       desiredContract,
       desiredSalary,
       cvPdfUrl,
-      videoPresentationUrl
+      videoPresentationUrl,
+      workExperiences,
+      availabilityRegionsProvinces,
+      availabilityContracts,
+      notes,
+      educationTitles,
+      sigla,
+      availabilityRoles
     } = req.body;
+
+    const skillsStr = typeof skills === 'object' ? JSON.stringify(skills) : skills;
+    const regionsStr = typeof availabilityRegionsProvinces === 'object' ? JSON.stringify(availabilityRegionsProvinces) : availabilityRegionsProvinces;
+    const contractsStr = typeof availabilityContracts === 'object' ? JSON.stringify(availabilityContracts) : availabilityContracts;
+    const educationsStr = typeof educationTitles === 'object' ? JSON.stringify(educationTitles) : educationTitles;
+    const rolesStr = typeof availabilityRoles === 'object' ? JSON.stringify(availabilityRoles) : availabilityRoles;
 
     const profile = await prisma.workerProfile.update({
       where: { userId: req.user.id },
@@ -53,13 +65,13 @@ export const updateProfile = async (req: any, res: Response) => {
         photoUrl,
         city,
         province,
+        sigla,
         region,
         profession,
-        specialization,
-        experienceYears: Number(experienceYears),
         educationLevel,
         educationField,
-        skills,
+        educationTitles: educationsStr || '[]',
+        skills: skillsStr,
         certifications,
         hasLicense: Boolean(hasLicense),
         hasCar: Boolean(hasCar),
@@ -68,7 +80,27 @@ export const updateProfile = async (req: any, res: Response) => {
         desiredContract,
         desiredSalary,
         cvPdfUrl,
-        videoPresentationUrl
+        videoPresentationUrl,
+        availabilityRegionsProvinces: regionsStr || '[]',
+        availabilityContracts: contractsStr || '[]',
+        availabilityRoles: rolesStr || '[]',
+        notes,
+        workExperiences: {
+          deleteMany: {},
+          create: (workExperiences || []).map((exp: any) => ({
+            companyName: exp.companyName,
+            role: exp.role,
+            startDate: exp.startDate,
+            endDate: exp.endDate,
+            description: exp.description,
+            city: exp.city,
+            province: exp.province,
+            sigla: exp.sigla
+          }))
+        }
+      },
+      include: {
+        workExperiences: true
       }
     });
 
@@ -81,11 +113,26 @@ export const updateProfile = async (req: any, res: Response) => {
 
 export const toggleAvailability = async (req: any, res: Response) => {
   try {
-    const { status, profession, city, maxDistanceKm, availabilityDetails } = req.body;
+    const { 
+      status, 
+      profession, 
+      city, 
+      maxDistanceKm, 
+      availabilityDetails, 
+      availabilityRegionsProvinces,
+      availabilityContracts,
+      notes,
+      availabilityRoles,
+      desiredSalary
+    } = req.body;
 
-    if (!['DISPONIBILE_SUBITO', 'VALUTO_OFFERTE', 'NON_DISPONIBILE'].includes(status)) {
+    if (!['DISPONIBILE_PROPOSTE', 'DISPONIBILE_SUBITO', 'VALUTO_OFFERTE', 'NON_DISPONIBILE'].includes(status)) {
       return res.status(400).json({ error: 'Invalid availability status' });
     }
+
+    const regionsStr = typeof availabilityRegionsProvinces === 'object' ? JSON.stringify(availabilityRegionsProvinces) : availabilityRegionsProvinces;
+    const contractsStr = typeof availabilityContracts === 'object' ? JSON.stringify(availabilityContracts) : availabilityContracts;
+    const rolesStr = typeof availabilityRoles === 'object' ? JSON.stringify(availabilityRoles) : availabilityRoles;
 
     const profile = await prisma.workerProfile.update({
       where: { userId: req.user.id },
@@ -95,7 +142,12 @@ export const toggleAvailability = async (req: any, res: Response) => {
           profession,
           city,
           maxDistanceKm: maxDistanceKm ? Number(maxDistanceKm) : undefined,
-          availabilityDetails
+          availabilityDetails,
+          availabilityRegionsProvinces: regionsStr || '[]',
+          availabilityContracts: contractsStr || '[]',
+          availabilityRoles: rolesStr || '[]',
+          desiredSalary,
+          notes
         } : {})
       }
     });
@@ -163,9 +215,9 @@ export const getInterviewRequests = async (req: any, res: Response) => {
 export const respondToInterviewRequest = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // "ACCEPTED" or "DECLINED"
+    const { status } = req.body; // "ACCEPTED", "DECLINED", "INTERESTED", "MORE_INFO", "NOT_INTERESTED"
 
-    if (!['ACCEPTED', 'DECLINED'].includes(status)) {
+    if (!['ACCEPTED', 'DECLINED', 'INTERESTED', 'MORE_INFO', 'NOT_INTERESTED'].includes(status)) {
       return res.status(400).json({ error: 'Invalid response status' });
     }
 
@@ -179,11 +231,33 @@ export const respondToInterviewRequest = async (req: any, res: Response) => {
 
     const updatedRequest = await prisma.interviewRequest.update({
       where: { id, workerId: profile.id },
-      data: { status }
+      data: { status },
+      include: {
+        company: true
+      }
+    });
+
+    // Translate status for the notification message
+    let statusText = status;
+    if (status === 'INTERESTED') statusText = 'Interessato a essere contattato';
+    else if (status === 'MORE_INFO') statusText = 'Interessato ad ottenere maggiori informazioni';
+    else if (status === 'NOT_INTERESTED') statusText = 'Non interessato';
+    else if (status === 'ACCEPTED') statusText = 'Accettato';
+    else if (status === 'DECLINED') statusText = 'Rifiutato';
+
+    // Notify the company of the worker's decision
+    await prisma.notification.create({
+      data: {
+        userId: updatedRequest.company.userId,
+        title: 'Risposta a Proposta Iniziale',
+        message: `${profile.firstName} ${profile.lastName} ha risposto alla tua proposta iniziale. Risposta: "${statusText}".`,
+        type: 'MESSAGE'
+      }
     });
 
     res.json(updatedRequest);
   } catch (error: any) {
+    console.error('Error responding to proposal:', error);
     res.status(500).json({ error: 'Error responding to interview request' });
   }
 };

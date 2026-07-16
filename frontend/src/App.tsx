@@ -196,7 +196,7 @@ function App() {
               <div className="flex-between mb-24">
                 <div>
                   <h2 style={{ background: 'var(--grad-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    {currentUser.role === 'WORKER' ? 'Area Candidato' : 'Area Ricerca Aziende'}
+                    {currentUser.role === 'WORKER' ? 'Area Candidato' : 'Area Ricerca Personale'}
                   </h2>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Gestisci e visualizza i tuoi dati in modalità portale web responsive.</p>
                 </div>

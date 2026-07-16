@@ -11,7 +11,6 @@ export const searchWorkers = async (req: any, res: Response) => {
       province,
       region,
       availabilityStatus,
-      experienceYearsMin,
       skills,
       hasLicense,
       hasCar,
@@ -22,38 +21,22 @@ export const searchWorkers = async (req: any, res: Response) => {
 
     const whereClause: any = {};
 
-    if (profession) {
-      whereClause.profession = { contains: String(profession) };
-    }
-    if (city) {
-      whereClause.city = { contains: String(city) };
-    }
-    if (province) {
-      whereClause.province = { equals: String(province).toUpperCase() };
-    }
-    if (region) {
-      whereClause.region = { contains: String(region) };
-    }
     if (availabilityStatus) {
-      whereClause.availabilityStatus = { equals: String(availabilityStatus) };
+      // Map legacy status to the new DISPONIBILE_PROPOSTE
+      const statusToQuery = (availabilityStatus === 'DISPONIBILE_SUBITO' || availabilityStatus === 'VALUTO_OFFERTE' || availabilityStatus === 'DISPONIBILE_PROPOSTE')
+        ? 'DISPONIBILE_PROPOSTE'
+        : availabilityStatus;
+      whereClause.availabilityStatus = { equals: statusToQuery };
+    } else {
+      // By default, only search for candidates who have not explicitly set "NON_DISPONIBILE"
+      whereClause.availabilityStatus = { not: 'NON_DISPONIBILE' };
     }
-    if (experienceYearsMin) {
-      whereClause.experienceYears = { gte: parseInt(String(experienceYearsMin)) };
-    }
+    
     if (hasLicense === 'true') {
       whereClause.hasLicense = true;
     }
     if (hasCar === 'true') {
       whereClause.hasCar = true;
-    }
-    if (desiredContract) {
-      whereClause.desiredContract = { equals: String(desiredContract) };
-    }
-    if (educationLevel) {
-      whereClause.educationLevel = { equals: String(educationLevel) };
-    }
-    if (educationField) {
-      whereClause.educationField = { contains: String(educationField) };
     }
 
     let workers = await prisma.workerProfile.findMany({
@@ -67,7 +50,182 @@ export const searchWorkers = async (req: any, res: Response) => {
       }
     });
 
-    // Client-side filtering for skills if specified (comma separated skills)
+    // In-memory filters for advanced regions/provinces, contracts, multiple educations, and multiple professions
+    if (profession || region || province || city || desiredContract || educationLevel || educationField) {
+      workers = workers.filter(worker => {
+        // 0. Profession Match
+        if (profession) {
+          const searchProf = String(profession).toLowerCase().trim();
+          const primaryMatch = worker.profession.toLowerCase().includes(searchProf);
+          
+          let rolesMatch = false;
+          try {
+            const parsedRoles: string[] = JSON.parse((worker as any).availabilityRoles || '[]');
+            rolesMatch = parsedRoles.some((r: string) => r.toLowerCase().includes(searchProf));
+          } catch (e) {
+            rolesMatch = false;
+          }
+          
+          if (!primaryMatch && !rolesMatch) {
+            return false;
+          }
+        }
+
+        // 1. Region / Province / City Match
+        let geoMatch = true;
+        
+        let preferredRegions: any[] = [];
+        try {
+          preferredRegions = JSON.parse(worker.availabilityRegionsProvinces || '[]');
+        } catch (e) {
+          preferredRegions = [];
+        }
+
+        // If the candidate has selected specific regions/provinces
+        if (preferredRegions.length > 0) {
+          let matchesGeo = false;
+
+          // Check if "Tutte le regioni" is selected
+          const hasAllRegions = preferredRegions.some((r: any) => r.region === 'Tutte le regioni');
+
+          if (hasAllRegions) {
+            matchesGeo = true;
+          } else {
+            // Check specific region/province
+            for (const r of preferredRegions) {
+              const regionName = r.region.toLowerCase();
+              
+              // If searching region
+              if (region && regionName.includes(String(region).toLowerCase())) {
+                matchesGeo = true;
+                break;
+              }
+
+              // If searching province
+              if (province) {
+                const searchProv = String(province).toUpperCase().trim();
+                const provincesList = r.provinces || [];
+                const hasAllProvinces = provincesList.some((p: any) => p.name === 'Tutte le province');
+
+                if (hasAllProvinces) {
+                  matchesGeo = true;
+                  break;
+                }
+
+                const provinceMatch = provincesList.some((p: any) => {
+                  const pName = p.name.toUpperCase().trim();
+                  // Match by name or sigla (e.g. "RM", "ROMA")
+                  return pName.includes(searchProv) || searchProv.includes(pName);
+                });
+
+                if (provinceMatch) {
+                  matchesGeo = true;
+                  break;
+                }
+              }
+
+              // If searching city
+              if (city && worker.city.toLowerCase().includes(String(city).toLowerCase())) {
+                matchesGeo = true;
+                break;
+              }
+            }
+          }
+
+          if (!matchesGeo) {
+            geoMatch = false;
+          }
+        } else {
+          // Fallback to candidate's home address
+          if (region && !worker.region.toLowerCase().includes(String(region).toLowerCase())) {
+            geoMatch = false;
+          }
+          if (province) {
+            const wProv = worker.province.toUpperCase().trim();
+            const sProv = String(province).toUpperCase().trim();
+            if (!wProv.includes(sProv) && !sProv.includes(wProv)) {
+              geoMatch = false;
+            }
+          }
+          if (city && !worker.city.toLowerCase().includes(String(city).toLowerCase())) {
+            geoMatch = false;
+          }
+        }
+
+        if (!geoMatch) return false;
+
+        // 2. Contract Match
+        if (desiredContract) {
+          let preferredContracts: string[] = [];
+          try {
+            preferredContracts = JSON.parse(worker.availabilityContracts || '[]');
+          } catch (e) {
+            preferredContracts = [];
+          }
+
+          if (preferredContracts.length > 0) {
+            // Check if "Nessuna preferenza" or candidate's list includes the desired contract
+            const hasNoPref = preferredContracts.includes('Nessuna preferenza') || preferredContracts.includes('NESSUNA_PREFERENZA');
+            const searchContractNorm = String(desiredContract).toUpperCase().replace('_', '').replace('-', '');
+            
+            const matchContract = preferredContracts.some((c: string) => {
+              const cNorm = c.toUpperCase().replace('_', '').replace('-', '');
+              return cNorm.includes(searchContractNorm) || searchContractNorm.includes(cNorm);
+            });
+
+            if (!hasNoPref && !matchContract) {
+              return false;
+            }
+          } else {
+            // Fallback to legacy desiredContract field
+            if (worker.desiredContract) {
+              const wNorm = worker.desiredContract.toUpperCase().replace('_', '').replace('-', '');
+              const sNorm = String(desiredContract).toUpperCase().replace('_', '').replace('-', '');
+              if (!wNorm.includes(sNorm) && !sNorm.includes(wNorm)) {
+                return false;
+              }
+            }
+          }
+        }
+
+        // 3. Education Match
+        if (educationLevel) {
+          let hasEduLevel = worker.educationLevel === educationLevel;
+          
+          let preferredEducations: any[] = [];
+          try {
+            preferredEducations = JSON.parse(worker.educationTitles || '[]');
+          } catch(e) {}
+          
+          if (preferredEducations.length > 0) {
+            hasEduLevel = hasEduLevel || preferredEducations.some((e: any) => e.level === educationLevel);
+          }
+          if (!hasEduLevel) {
+            return false;
+          }
+        }
+        
+        if (educationField) {
+          let hasEduField = worker.educationField && worker.educationField.toLowerCase().includes(String(educationField).toLowerCase());
+          
+          let preferredEducations: any[] = [];
+          try {
+            preferredEducations = JSON.parse(worker.educationTitles || '[]');
+          } catch(e) {}
+          
+          if (preferredEducations.length > 0) {
+            hasEduField = hasEduField || preferredEducations.some((e: any) => e.field && e.field.toLowerCase().includes(String(educationField).toLowerCase()));
+          }
+          if (!hasEduField) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    }
+
+    // Client-side filtering for skills if specified
     if (skills) {
       const searchSkills = String(skills)
         .split(',')
@@ -76,11 +234,26 @@ export const searchWorkers = async (req: any, res: Response) => {
 
       if (searchSkills.length > 0) {
         workers = workers.filter((worker) => {
-          const workerSkills = worker.skills
-            .toLowerCase()
-            .split(',')
-            .map((s) => s.trim());
-          return searchSkills.some((skill) => workerSkills.includes(skill) || workerSkills.some(ws => ws.includes(skill)));
+          try {
+            const parsed = JSON.parse(worker.skills);
+            const workerSkillsList: string[] = [];
+            if (parsed.computerSkills) {
+              workerSkillsList.push(...Object.keys(parsed.computerSkills));
+            }
+            if (parsed.organizationalSkills) {
+              workerSkillsList.push(...Object.keys(parsed.organizationalSkills));
+            }
+            
+            return searchSkills.some((skill) => 
+              workerSkillsList.some(ws => ws.toLowerCase().includes(skill))
+            );
+          } catch (e) {
+            const workerSkills = worker.skills
+              .toLowerCase()
+              .split(',')
+              .map((s) => s.trim());
+            return searchSkills.some((skill) => workerSkills.includes(skill) || workerSkills.some(ws => ws.includes(skill)));
+          }
         });
       }
     }
@@ -108,20 +281,43 @@ export const getProfile = async (req: any, res: Response) => {
 
 export const updateProfile = async (req: any, res: Response) => {
   try {
-    const { companyName, industry, city, contactPerson, contactPhone, logoUrl } = req.body;
+    const {
+      companyType,
+      companyName,
+      address,
+      vatNumber,
+      firstName,
+      lastName,
+      residenzaCapCitta,
+      fiscalCode,
+      industry,
+      city,
+      contactPerson,
+      contactPhone,
+      logoUrl
+    } = req.body;
+
     const profile = await prisma.companyProfile.update({
       where: { userId: req.user.id },
       data: {
+        companyType,
         companyName,
+        address,
+        vatNumber,
+        firstName,
+        lastName,
+        residenzaCapCitta,
+        fiscalCode,
         industry,
-        city,
-        contactPerson,
+        city: companyType === 'AZIENDA' ? city : residenzaCapCitta,
+        contactPerson: companyType === 'AZIENDA' ? contactPerson : `${firstName} ${lastName}`,
         contactPhone,
         logoUrl
       }
     });
     res.json(profile);
   } catch (error: any) {
+    console.error('Error updating company profile:', error);
     res.status(500).json({ error: 'Error updating profile' });
   }
 };
@@ -135,7 +331,8 @@ export const getWorkerDetails = async (req: any, res: Response) => {
       include: {
         user: {
           select: { email: true }
-        }
+        },
+        workExperiences: true
       }
     });
 
@@ -253,12 +450,14 @@ export const requestInterview = async (req: any, res: Response) => {
       return res.status(404).json({ error: 'Worker not found' });
     }
 
+    const companyName = company.companyName || `${company.firstName} ${company.lastName}` || "Un'azienda";
+
     const interviewRequest = await prisma.interviewRequest.create({
       data: {
         companyId: company.id,
         workerId,
         message,
-        interviewDate: date,
+        interviewDate: date || new Date().toLocaleDateString('it-IT'),
         status: 'PENDING'
       }
     });
@@ -267,8 +466,8 @@ export const requestInterview = async (req: any, res: Response) => {
     await prisma.notification.create({
       data: {
         userId: worker.userId,
-        title: 'Richiesta di Colloquio',
-        message: `${company.companyName} ti ha inviato una richiesta di colloquio per il giorno ${date}.`,
+        title: 'Proposta Iniziale',
+        message: `${companyName} ti ha inviato una proposta iniziale.`,
         type: 'INTERVIEW_REQUEST'
       }
     });

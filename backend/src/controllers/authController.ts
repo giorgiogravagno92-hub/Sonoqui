@@ -47,20 +47,27 @@ export const register = async (req: Request, res: Response) => {
             province: profileData?.province || 'RM',
             region: profileData?.region || 'Lazio',
             profession: profileData?.profession || 'Impiegato',
-            experienceYears: profileData?.experienceYears || 0,
             skills: profileData?.skills || 'Nessuna',
             availabilityStatus: 'VALUTO_OFFERTE',
             desiredContract: profileData?.desiredContract || 'TEMPO_INDETERMINATO'
           }
         });
       } else if (role === 'COMPANY') {
+        const companyType = profileData?.companyType || 'AZIENDA';
         await tx.companyProfile.create({
           data: {
             userId: newUser.id,
-            companyName: profileData?.companyName || 'Nuova Azienda',
-            industry: profileData?.industry || 'Altro',
-            city: profileData?.city || 'Roma',
-            contactPerson: profileData?.contactPerson || 'Referente'
+            companyType,
+            companyName: companyType === 'AZIENDA' ? (profileData?.companyName || 'Nuova Azienda') : null,
+            address: companyType === 'AZIENDA' ? profileData?.address : null,
+            vatNumber: companyType === 'AZIENDA' ? profileData?.vatNumber : null,
+            firstName: companyType === 'PERSONA_FISICA' ? profileData?.firstName : null,
+            lastName: companyType === 'PERSONA_FISICA' ? profileData?.lastName : null,
+            residenzaCapCitta: companyType === 'PERSONA_FISICA' ? profileData?.residenzaCapCitta : null,
+            fiscalCode: companyType === 'PERSONA_FISICA' ? profileData?.fiscalCode : null,
+            industry: 'Altro',
+            city: companyType === 'AZIENDA' ? 'Roma' : (profileData?.residenzaCapCitta || 'Roma'),
+            contactPerson: companyType === 'AZIENDA' ? 'Referente' : `${profileData?.firstName} ${profileData?.lastName}`,
           }
         });
       }
@@ -201,7 +208,6 @@ export const socialLoginSimulation = async (req: Request, res: Response) => {
               province: 'MI',
               region: 'Lombardia',
               profession: 'Sviluppatore Web',
-              experienceYears: 2,
               skills: 'HTML, CSS, JavaScript, React',
               availabilityStatus: 'DISPONIBILE_SUBITO',
               desiredContract: 'TEMPO_INDETERMINATO'

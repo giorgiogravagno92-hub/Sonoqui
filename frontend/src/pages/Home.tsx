@@ -39,7 +39,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               style={{ padding: '16px 36px', fontSize: '1.1rem' }}
               onClick={() => onNavigate('login', 'COMPANY')}
             >
-              🏢 Cerco Personale (Aziende)
+              🏢 Cerco Personale
             </button>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Accedi o Registrati</span>
           </div>

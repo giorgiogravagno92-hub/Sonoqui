@@ -123,11 +123,11 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
       await api.company.requestInterview({
         workerId: selectedCandidate.id,
         message: interviewMessage,
-        date: interviewDate
+        date: ""
       });
       setInterviewSuccess(true);
       if (onNotifyMobile) {
-        onNotifyMobile('Richiesta Inviata', `Richiesta di colloquio inviata con successo a ${selectedCandidate.firstName}.`);
+        onNotifyMobile('Proposta Inviata', `Proposta iniziale inviata con successo a ${selectedCandidate.firstName}.`);
       }
       setTimeout(() => {
         setShowInterviewModal(false);
@@ -151,6 +151,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'DISPONIBILE_PROPOSTE': return { text: 'Disponibile a ricevere proposte', class: 'status-available-badge' };
       case 'DISPONIBILE_SUBITO': return { text: 'Subito Disponibile', class: 'status-available-badge' };
       case 'VALUTO_OFFERTE': return { text: 'Valuto Offerte', class: 'status-valuto-badge' };
       case 'NON_DISPONIBILE': return { text: 'Non Disponibile', class: 'status-unavailable-badge' };
@@ -163,19 +164,19 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-glass)', marginBottom: '20px', paddingBottom: '8px' }}>
         <button 
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'search' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'search' ? '#fff' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'search' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'search' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
           onClick={() => setActiveTab('search')}
         >
           🔍 Ricerca
         </button>
         <button 
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'favorites' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'favorites' ? '#fff' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'favorites' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'favorites' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
           onClick={() => setActiveTab('favorites')}
         >
           ⭐️ Preferiti ({favorites.length})
         </button>
         <button 
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'profile' ? '#fff' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'profile' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
           onClick={() => setActiveTab('profile')}
         >
           🏢 Profilo
@@ -216,7 +217,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                     type="text" 
                     className="form-control" 
                     style={{ marginTop: '10px' }}
-                    placeholder="Specifica professione personalizzata" 
+                    autoComplete="off" 
                     value={profession} 
                     onChange={(e) => setProfession(e.target.value)} 
                   />
@@ -226,10 +227,10 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <select 
                   className="form-control" 
-                  value={city} 
-                  onChange={(e) => setCity(e.target.value)} 
+                  value={province} 
+                  onChange={(e) => setProvince(e.target.value)} 
                 >
-                  <option value="">Qualsiasi Città</option>
+                  <option value="">Qualsiasi Provincia</option>
                   {CITIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -237,26 +238,25 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                 <input 
                   type="text" 
                   className="form-control" 
-                  placeholder="Provincia (es. RM)" 
-                  value={province} 
-                  onChange={(e) => setProvince(e.target.value)} 
+                  autoComplete="off" 
+                  value={city} 
+                  onChange={(e) => {
+                    const cap = e.target.value
+                      .toLowerCase()
+                      .split(' ')
+                      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(' ');
+                    setCity(cap);
+                  }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div className="form-group" style={{ marginBottom: '10px' }}>
                 <select className="form-control" value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value)}>
                   <option value="">Qualsiasi disponibilità</option>
-                  <option value="DISPONIBILE_SUBITO">Disponibile Subito</option>
-                  <option value="VALUTO_OFFERTE">Valuto Offerte</option>
+                  <option value="DISPONIBILE_PROPOSTE">Disponibile a ricevere proposte</option>
                   <option value="NON_DISPONIBILE">Non Disponibile</option>
                 </select>
-                <input 
-                  type="number" 
-                  className="form-control" 
-                  placeholder="Anni Esp. Minimi" 
-                  value={experienceYearsMin} 
-                  onChange={(e) => setExperienceYearsMin(e.target.value)} 
-                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -306,7 +306,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
               <input 
                 type="text" 
                 className="form-control" 
-                placeholder="Competenze (es. React, Domotica)" 
+                autoComplete="off" 
                 value={skills} 
                 onChange={(e) => setSkills(e.target.value)} 
               />
@@ -350,7 +350,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                     />
                     <div>
                       <h4 style={{ fontSize: '0.95rem' }}>{cand.firstName} {cand.lastName.charAt(0)}.</h4>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>📍 {cand.city} • Esp: {cand.experienceYears} anni</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>📍 {cand.city}</div>
                     </div>
                   </div>
 
@@ -436,25 +436,86 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
       {/* Profile Tab */}
       {activeTab === 'profile' && (
         <div className="glass-card" style={{ padding: '16px' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '16px' }}>Profilo Aziendale</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '16px' }}>
+            {companyProfile.companyType === 'PERSONA_FISICA' ? 'Profilo Recruiter (Persona Fisica)' : 'Profilo Aziendale'}
+          </h3>
           {isEditingProfile ? (
             <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="form-group">
-                <label className="form-label">Nome Azienda</label>
-                <input type="text" className="form-control" value={companyProfile.companyName} onChange={(e) => setCompanyProfile({...companyProfile, companyName: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Settore</label>
-                <input type="text" className="form-control" value={companyProfile.industry} onChange={(e) => setCompanyProfile({...companyProfile, industry: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Città Sede</label>
-                <input type="text" className="form-control" value={companyProfile.city} onChange={(e) => setCompanyProfile({...companyProfile, city: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Referente</label>
-                <input type="text" className="form-control" value={companyProfile.contactPerson} onChange={(e) => setCompanyProfile({...companyProfile, contactPerson: e.target.value})} required />
-              </div>
+              {companyProfile.companyType === 'PERSONA_FISICA' ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Nome</label>
+                    <input type="text" className="form-control" value={companyProfile.firstName || ''} onChange={(e) => setCompanyProfile({...companyProfile, firstName: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Cognome</label>
+                    <input type="text" className="form-control" value={companyProfile.lastName || ''} onChange={(e) => setCompanyProfile({...companyProfile, lastName: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Residenza (CAP e Città)</label>
+                    <input type="text" className="form-control" value={companyProfile.residenzaCapCitta || ''} onChange={(e) => setCompanyProfile({...companyProfile, residenzaCapCitta: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Codice Fiscale</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={companyProfile.fiscalCode || ''} 
+                      onChange={(e) => {
+                        let clean = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                        if (clean.length > 16) clean = clean.slice(0, 16);
+                        setCompanyProfile({...companyProfile, fiscalCode: clean});
+                      }} 
+                      pattern="[A-Z0-9]{16}"
+                      maxLength={16} 
+                      minLength={16}
+                      title="Codice Fiscale deve essere di esattamente 16 caratteri alfanumerici"
+                      required 
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Nome Azienda</label>
+                    <input type="text" className="form-control" value={companyProfile.companyName || ''} onChange={(e) => setCompanyProfile({...companyProfile, companyName: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Indirizzo</label>
+                    <input type="text" className="form-control" value={companyProfile.address || ''} onChange={(e) => setCompanyProfile({...companyProfile, address: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Partita IVA</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={companyProfile.vatNumber || ''} 
+                      onChange={(e) => {
+                        let digits = e.target.value.replace(/[^0-9]/g, '');
+                        if (digits.length > 11) digits = digits.slice(0, 11);
+                        setCompanyProfile({...companyProfile, vatNumber: 'IT' + digits});
+                      }} 
+                      pattern="IT[0-9]{11}"
+                      maxLength={13}
+                      minLength={13}
+                      title="Partita IVA deve iniziare con 'IT' seguito da esattamente 11 cifre numeriche"
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Settore</label>
+                    <input type="text" className="form-control" value={companyProfile.industry || ''} onChange={(e) => setCompanyProfile({...companyProfile, industry: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Città Sede</label>
+                    <input type="text" className="form-control" value={companyProfile.city || ''} onChange={(e) => setCompanyProfile({...companyProfile, city: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Referente</label>
+                    <input type="text" className="form-control" value={companyProfile.contactPerson || ''} onChange={(e) => setCompanyProfile({...companyProfile, contactPerson: e.target.value})} required />
+                  </div>
+                </>
+              )}
               <div className="form-group">
                 <label className="form-label">Telefono di Contatto</label>
                 <input type="text" className="form-control" value={companyProfile.contactPhone || ''} onChange={(e) => setCompanyProfile({...companyProfile, contactPhone: e.target.value})} />
@@ -466,10 +527,23 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
             </form>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-              <div><strong>Ragione Sociale:</strong> {companyProfile.companyName}</div>
-              <div><strong>Settore:</strong> {companyProfile.industry}</div>
-              <div><strong>Sede Operativa:</strong> {companyProfile.city}</div>
-              <div><strong>Persona di Riferimento:</strong> {companyProfile.contactPerson}</div>
+              {companyProfile.companyType === 'PERSONA_FISICA' ? (
+                <>
+                  <div><strong>Nome:</strong> {companyProfile.firstName}</div>
+                  <div><strong>Cognome:</strong> {companyProfile.lastName}</div>
+                  <div><strong>Residenza (CAP e Città):</strong> {companyProfile.residenzaCapCitta}</div>
+                  <div><strong>Codice Fiscale:</strong> {companyProfile.fiscalCode}</div>
+                </>
+              ) : (
+                <>
+                  <div><strong>Ragione Sociale:</strong> {companyProfile.companyName}</div>
+                  {companyProfile.address && <div><strong>Indirizzo:</strong> {companyProfile.address}</div>}
+                  {companyProfile.vatNumber && <div><strong>Partita IVA:</strong> {companyProfile.vatNumber}</div>}
+                  <div><strong>Settore:</strong> {companyProfile.industry}</div>
+                  <div><strong>Sede Operativa:</strong> {companyProfile.city}</div>
+                  <div><strong>Persona di Riferimento:</strong> {companyProfile.contactPerson}</div>
+                </>
+              )}
               {companyProfile.contactPhone && <div><strong>Telefono:</strong> {companyProfile.contactPhone}</div>}
               
               <button className="btn btn-primary" style={{ marginTop: '16px' }} onClick={() => setIsEditingProfile(true)}>
@@ -499,31 +573,151 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem', marginBottom: '20px' }}>
-              <div><strong>Ruolo:</strong> {selectedCandidate.profession} {selectedCandidate.specialization ? `(${selectedCandidate.specialization})` : ''}</div>
-              <div><strong>Esperienza:</strong> {selectedCandidate.experienceYears} anni</div>
+              <div><strong>Ruolo:</strong> {selectedCandidate.profession}</div>
               <div>
-                <strong>Titolo di Studio:</strong> {
-                  selectedCandidate.educationLevel === 'NESSUNO' || !selectedCandidate.educationLevel ? 'Nessun Titolo' :
-                  selectedCandidate.educationLevel === 'LICENZA_MEDIA' ? 'Licenza Media' :
-                  `${selectedCandidate.educationLevel === 'DIPLOMA' ? 'Diploma' : 'Laurea'} - ${selectedCandidate.educationField || ''}`
-                }
+                <strong>Titolo/i di Studio:</strong>
+                {(() => {
+                  let edus = [];
+                  try {
+                    edus = JSON.parse(selectedCandidate.educationTitles || '[]');
+                  } catch (e) {}
+                  if (edus.length === 0) {
+                    // Fallback for legacy
+                    if (!selectedCandidate.educationLevel || selectedCandidate.educationLevel === 'NESSUNO') {
+                      return <span style={{ marginLeft: '6px' }}>Nessun Titolo</span>;
+                    }
+                    const label = selectedCandidate.educationLevel === 'LICENZA_MEDIA' ? 'Licenza Media' : 
+                                  selectedCandidate.educationLevel === 'DIPLOMA' ? 'Diploma' : 'Laurea';
+                    return <span style={{ marginLeft: '6px' }}>{label} {selectedCandidate.educationField ? `- ${selectedCandidate.educationField}` : ''}</span>;
+                  }
+                  return (
+                    <ul style={{ paddingLeft: '16px', margin: '4px 0 0 0' }}>
+                      {edus.map((edu: any, i: number) => {
+                        const label = edu.level === 'LICENZA_MEDIA' ? 'Licenza Media' : 
+                                      edu.level === 'DIPLOMA' ? 'Diploma' : 
+                                      edu.level === 'LAUREA' ? 'Laurea' : edu.level;
+                        return (
+                          <li key={i}>
+                            {label} {edu.field ? ` - ${edu.field}` : ''}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                })()}
               </div>
-              <div><strong>Stato Disponibilità:</strong> <span style={{ color: selectedCandidate.availabilityStatus === 'DISPONIBILE_SUBITO' ? 'var(--accent-green)' : (selectedCandidate.availabilityStatus === 'VALUTO_OFFERTE' ? 'var(--accent-yellow)' : 'var(--accent-red)'), fontWeight: 700 }}>{selectedCandidate.availabilityStatus.replace('_', ' ')}</span></div>
-              {selectedCandidate.availabilityDetails && (
-                <div><strong>Orari & Giorni Disponibili:</strong> <span style={{ color: 'var(--accent-green)' }}>{selectedCandidate.availabilityDetails}</span></div>
-              )}
-              <div><strong>Raggio d'azione max:</strong> {selectedCandidate.maxDistanceKm} Km</div>
-              <div><strong>Automunito:</strong> {selectedCandidate.hasCar ? 'Sì' : 'No'} | <strong>Patente B:</strong> {selectedCandidate.hasLicense ? 'Sì' : 'No'}</div>
-              <div><strong>Contratto richiesto:</strong> {selectedCandidate.desiredContract.replace('_', ' ')}</div>
-              {selectedCandidate.desiredSalary && <div><strong>Retribuzione desiderata:</strong> {selectedCandidate.desiredSalary}</div>}
+              <div>
+                <strong>Stato Disponibilità:</strong>{' '}
+                <span style={{ 
+                  color: selectedCandidate.availabilityStatus === 'DISPONIBILE_PROPOSTE' || selectedCandidate.availabilityStatus === 'DISPONIBILE_SUBITO' ? 'var(--accent-green)' : 
+                         (selectedCandidate.availabilityStatus === 'VALUTO_OFFERTE' ? 'var(--accent-yellow)' : 'var(--accent-red)'), 
+                  fontWeight: 700 
+                }}>
+                  {selectedCandidate.availabilityStatus === 'DISPONIBILE_PROPOSTE' ? 'Disponibile a ricevere proposte' : 
+                   selectedCandidate.availabilityStatus === 'NON_DISPONIBILE' ? 'Non disponibile' : 
+                   selectedCandidate.availabilityStatus.replace('_', ' ')}
+                </span>
+              </div>
 
-              <div style={{ marginTop: '8px' }}>
-                <strong>Competenze:</strong>
-                <div className="tag-list">
-                  {selectedCandidate.skills.split(',').map((s: string, idx: number) => (
-                    <span key={idx} className="tag">{s.trim()}</span>
-                  ))}
+              {selectedCandidate.availabilityStatus !== 'NON_DISPONIBILE' && (
+                <>
+                  <div>
+                    <strong>Regioni e Province di Disponibilità:</strong>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {(() => {
+                        let regions = [];
+                        try {
+                          regions = JSON.parse(selectedCandidate.availabilityRegionsProvinces || '[]');
+                        } catch(e) {}
+                        if (regions.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Nessuna specificata</span>;
+                        return regions.map((r: any) => (
+                          <span key={r.region} className="tag" style={{ borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', fontSize: '0.75rem', padding: '3px 8px' }}>
+                            📍 {r.region}: {r.provinces && r.provinces.length > 0 ? r.provinces.map((p: any) => `${p.name} (${p.maxDistance}km)`).join(', ') : 'Tutte le province'}
+                          </span>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <strong>Contratti graditi:</strong>{' '}
+                    {(() => {
+                      let contracts = [];
+                      try {
+                        contracts = JSON.parse(selectedCandidate.availabilityContracts || '[]');
+                      } catch(e) {}
+                      if (contracts.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Nessuna preferenza</span>;
+                      return contracts.join(', ');
+                    })()}
+                  </div>
+                </>
+              )}
+
+              {selectedCandidate.notes && (
+                <div>
+                  <strong>Note del candidato:</strong>{' '}
+                  <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>"{selectedCandidate.notes}"</span>
                 </div>
+              )}
+
+              <div><strong>Automunito:</strong> {selectedCandidate.hasCar ? 'Sì' : 'No'} | <strong>Patente B:</strong> {selectedCandidate.hasLicense ? 'Sì' : 'No'}</div>
+
+              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(() => {
+                  let parsed = { computerSkills: {}, organizationalSkills: {} };
+                  try {
+                    parsed = JSON.parse(selectedCandidate.skills || '{}');
+                  } catch (e) {
+                    const skillsArr = (selectedCandidate.skills || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                    if (skillsArr.length > 0) {
+                      return (
+                        <div>
+                          <strong>Competenze:</strong>
+                          <div className="tag-list" style={{ marginTop: '4px' }}>
+                            {skillsArr.map((skill: string, i: number) => (
+                              <span key={i} className="tag">{skill}</span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }
+
+                  const compSkills = parsed.computerSkills || {};
+                  const orgSkills = parsed.organizationalSkills || {};
+                  const compKeys = Object.keys(compSkills);
+                  const orgKeys = Object.keys(orgSkills);
+
+                  return (
+                    <>
+                      {compKeys.length > 0 && (
+                        <div>
+                          <strong>Competenze Informatiche:</strong>
+                          <div className="tag-list" style={{ marginTop: '4px' }}>
+                            {compKeys.map(skill => (
+                              <span key={skill} className="tag" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', color: 'var(--accent-blue)' }}>
+                                {skill} ({compSkills[skill]})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {orgKeys.length > 0 && (
+                        <div>
+                          <strong>Competenze Organizzative:</strong>
+                          <div className="tag-list" style={{ marginTop: '4px' }}>
+                            {orgKeys.map(skill => (
+                              <span key={skill} className="tag" style={{ borderColor: 'rgba(16, 185, 129, 0.3)', color: 'var(--accent-green)' }}>
+                                {skill} ({orgSkills[skill]})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               {selectedCandidate.certifications && (
@@ -531,11 +725,42 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                   <strong>Certificazioni:</strong>
                   <div className="tag-list">
                     {selectedCandidate.certifications.split(',').map((c: string, idx: number) => (
-                      <span key={idx} className="tag" style={{ borderColor: 'rgba(139,92,246,0.3)', color: '#d8b4fe' }}>{c.trim()}</span>
+                      <span key={idx} className="tag" style={{ borderColor: 'rgba(139,92,246,0.3)', color: 'var(--accent-purple)' }}>{c.trim()}</span>
                     ))}
                   </div>
                 </div>
               )}
+
+              {/* Sezione Esperienze Lavorative nel Dettaglio Candidato */}
+              <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+                <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block', marginBottom: '8px' }}>
+                  💼 Esperienze Lavorative Precedenti:
+                </strong>
+                {selectedCandidate.workExperiences && selectedCandidate.workExperiences.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {selectedCandidate.workExperiences.map((exp: any, idx: number) => (
+                      <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', padding: '10px', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', marginBottom: '2px' }}>
+                          <strong style={{ color: '#fff', fontSize: '0.8rem' }}>{exp.role}</strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {exp.startDate} - {exp.endDate || 'Presente'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          🏢 {exp.companyName || 'Azienda non specificata'} {exp.city ? `• ${exp.city}` : ''} {exp.province ? `(${exp.sigla ? exp.sigla : exp.province})` : ''}
+                        </div>
+                        {exp.description && (
+                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '4px 0 0 0', lineHeight: '1.4', fontStyle: 'italic' }}>
+                            {exp.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Nessuna esperienza inserita nel CV.</p>
+                )}
+              </div>
             </div>
 
             {/* Media Simulation */}
@@ -554,7 +779,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
             {/* Request Interview CTA */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setShowInterviewModal(true)}>
-                📅 Richiedi Colloquio
+                ✉️ Invia Proposta
               </button>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setSelectedCandidate(null)}>
                 Chiudi
@@ -564,37 +789,28 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
         </div>
       )}
 
-      {/* Schedule Interview Sub-Modal */}
+      {/* Send Proposal Sub-Modal */}
       {showInterviewModal && selectedCandidate && (
         <div className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal-content" style={{ maxWidth: '400px' }}>
             <div className="modal-close" onClick={() => setShowInterviewModal(false)}>&times;</div>
-            <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Pianifica Colloquio</h3>
+            <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Invia Proposta Iniziale</h3>
 
             {interviewSuccess ? (
               <div style={{ textAlign: 'center', padding: '20px' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🎉</div>
-                <strong>Richiesta Inviata!</strong>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '6px' }}>Il candidato è stato notificato sul suo smartphone.</p>
+                <strong>Proposta Inviata!</strong>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '6px' }}>Il candidato riceverà una notifica sul suo smartphone per valutare l'offerta.</p>
               </div>
             ) : (
               <form onSubmit={handleSendInterviewRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div className="form-group">
-                  <label className="form-label">Data e Ora Proposte</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-control" 
-                    value={interviewDate}
-                    onChange={(e) => setInterviewDate(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Messaggio di Presentazione</label>
+                  <label className="form-label">Messaggio di Presentazione / Dettagli Proposta</label>
                   <textarea 
                     className="form-control" 
                     value={interviewMessage}
                     onChange={(e) => setInterviewMessage(e.target.value)} 
+                    autoComplete="off"
                     rows={4}
                     required 
                   />

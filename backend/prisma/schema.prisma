@@ -27,37 +27,49 @@ model WorkerProfile {
   photoUrl             String?
   city                 String
   province             String
+  sigla                String?
   region               String
   profession           String
-  specialization       String?
-  experienceYears      Int
   educationLevel       String             @default("NESSUNO") // "NESSUNO", "LICENZA_MEDIA", "DIPLOMA", "LAUREA"
   educationField       String?            // Specific diploma or degree
+  educationTitles      String             @default("[]")      // JSON array of multiple education degrees
   skills               String             // Comma-separated list of skills
   certifications       String?            // Comma-separated list of certifications
   hasLicense           Boolean            @default(false)
   hasCar               Boolean            @default(false)
-  availabilityStatus   String             // "DISPONIBILE_SUBITO", "VALUTO_OFFERTE", "NON_DISPONIBILE"
+  availabilityStatus   String             // "DISPONIBILE_PROPOSTE", "NON_DISPONIBILE"
   availabilityDetails  String?            // e.g. "Lun-Ven, Mattina"
   maxDistanceKm        Int                @default(50)
-  desiredContract      String             // e.g. "TEMPO_INDETERMINATO", "PART_TIME", "APPRENDISTATO"
+  desiredContract      String?            // e.g. "TEMPO_INDETERMINATO", "PART_TIME", "APPRENDISTATO"
   desiredSalary        String?            // Optional salary range or figure
+  availabilityRegionsProvinces String   @default("[]")
+  availabilityContracts        String   @default("[]")
+  availabilityRoles            String   @default("[]")
+  notes                        String?
   cvPdfUrl             String?
   videoPresentationUrl String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   favoritedBy          Favorite[]
   interviewRequests    InterviewRequest[]
+  workExperiences      WorkExperience[]
 }
 
 model CompanyProfile {
   id                String             @id @default(uuid())
   userId            String             @unique
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName       String
-  industry          String
-  city              String
-  contactPerson     String
+  companyType       String             @default("AZIENDA") // "AZIENDA" or "PERSONA_FISICA"
+  companyName       String?
+  address           String?
+  vatNumber         String?
+  firstName         String?
+  lastName          String?
+  residenzaCapCitta String?
+  fiscalCode        String?
+  industry          String?
+  city              String?
+  contactPerson     String?
   contactPhone      String?
   logoUrl           String?
   createdAt         DateTime           @default(now())
@@ -99,3 +111,19 @@ model Notification {
   type      String   // "PROFILE_VIEW", "MESSAGE", "INTERVIEW_REQUEST", "EXPIRING_AVAILABILITY"
   createdAt DateTime @default(now())
 }
+
+model WorkExperience {
+  id              String        @id @default(uuid())
+  workerProfileId String
+  workerProfile   WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  companyName     String
+  role            String
+  startDate       String
+  endDate         String?
+  description     String?
+  city            String?
+  province        String?
+  sigla           String?
+  createdAt       DateTime      @default(now())
+}
+
