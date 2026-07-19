@@ -1,0 +1,125 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sendSystemNotification = exports.deleteUser = exports.getCompanies = exports.getUsers = exports.getStats = void 0;
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+const getStats = async (req, res) => {
+    try {
+        const workersCount = await prisma.workerProfile.count();
+        const companiesCount = await prisma.companyProfile.count();
+        const interviewsCount = await prisma.interviewRequest.count();
+        const favoritesCount = await prisma.favorite.count();
+        const workersByStatus = await prisma.workerProfile.groupBy({
+            by: ['availabilityStatus'],
+            _count: {
+                availabilityStatus: true
+            }
+        });
+        const activeInterviewsByStatus = await prisma.interviewRequest.groupBy({
+            by: ['status'],
+            _count: {
+                status: true
+            }
+        });
+        res.json({
+            totals: {
+                workers: workersCount,
+                companies: companiesCount,
+                interviews: interviewsCount,
+                favorites: favoritesCount
+            },
+            availabilityDistribution: workersByStatus.reduce((acc, curr) => {
+                acc[curr.availabilityStatus] = curr._count.availabilityStatus;
+                return acc;
+            }, {}),
+            interviewStatusDistribution: activeInterviewsByStatus.reduce((acc, curr) => {
+                acc[curr.status] = curr._count.status;
+                return acc;
+            }, {})
+        });
+    }
+    catch (error) {
+        console.error('Error fetching admin statistics:', error);
+        res.status(500).json({ error: 'Error fetching stats' });
+    }
+};
+exports.getStats = getStats;
+const getUsers = async (req, res) => {
+    try {
+        const workers = await prisma.workerProfile.findMany({
+            include: {
+                user: {
+                    select: { email: true, createdAt: true }
+                }
+            }
+        });
+        res.json(workers);
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Error fetching users list' });
+    }
+};
+exports.getUsers = getUsers;
+const getCompanies = async (req, res) => {
+    try {
+        const companies = await prisma.companyProfile.findMany({
+            include: {
+                user: {
+                    select: { email: true, createdAt: true }
+                }
+            }
+        });
+        res.json(companies);
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Error fetching companies list' });
+    }
+};
+exports.getCompanies = getCompanies;
+const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params; // User ID
+        await prisma.user.delete({
+            where: { id }
+        });
+        res.json({ success: true, message: 'User and all related profiles deleted successfully.' });
+    }
+    catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Error deleting user' });
+    }
+};
+exports.deleteUser = deleteUser;
+const sendSystemNotification = async (req, res) => {
+    try {
+        const { title, message, targetRole } = req.body; // targetRole: 'ALL', 'WORKER', 'COMPANY'
+        if (!title || !message) {
+            return res.status(400).json({ error: 'Title and message are required' });
+        }
+        const whereClause = {};
+        if (targetRole && targetRole !== 'ALL') {
+            whereClause.role = targetRole;
+        }
+        const users = await prisma.user.findMany({ where: whereClause });
+        // Create notifications for all target users
+        const notificationsData = users.map((user) => ({
+            userId: user.id,
+            title,
+            message,
+            type: 'MESSAGE'
+        }));
+        await prisma.notification.createMany({
+            data: notificationsData
+        });
+        res.json({
+            success: true,
+            deliveredCount: users.length,
+            message: `System notification sent to ${users.length} users successfully.`
+        });
+    }
+    catch (error) {
+        console.error('Error sending system notification:', error);
+        res.status(500).json({ error: 'Error sending notification' });
+    }
+};
+exports.sendSystemNotification = sendSystemNotification;

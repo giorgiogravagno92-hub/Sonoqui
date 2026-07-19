@@ -11,7 +11,8 @@ const setMockData = (key: string, value: any) => {
 };
 
 // Initialize mock database if empty
-if (!localStorage.getItem('sono_qui_mock_initialized')) {
+if (!localStorage.getItem('sono_qui_mock_initialized_v2')) {
+  localStorage.removeItem('sono_qui_mock_workers');
   setMockData('workers', [
     {
       id: 'w1',
@@ -165,7 +166,7 @@ if (!localStorage.getItem('sono_qui_mock_initialized')) {
       category: 'Candidati'
     }
   ]);
-  localStorage.setItem('sono_qui_mock_initialized', 'true');
+  localStorage.setItem('sono_qui_mock_initialized_v2', 'true');
 }
 
 // Check server status
@@ -243,7 +244,15 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
   if (path.startsWith('/auth/me')) {
     const token = localStorage.getItem('sono_qui_token');
     if (!token) throw new Error('Unauthorized');
-    return { id: 'u-work', email: 'worker@demo.it', role: 'WORKER' };
+    return { 
+      id: 'u-work', 
+      email: 'worker@demo.it', 
+      role: 'WORKER',
+      profile: {
+        firstName: 'Mario',
+        lastName: 'Rossi'
+      }
+    };
   }
 
   if (path.startsWith('/workers/profile')) {
@@ -287,10 +296,26 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
       workers[0].availabilityDetails = body.availabilityDetails || '';
       workers[0].availabilityRegionsProvinces = body.availabilityRegionsProvinces || workers[0].availabilityRegionsProvinces || '[]';
       workers[0].availabilityContracts = body.availabilityContracts || workers[0].availabilityContracts || '[]';
-      workers[0].notes = body.notes || workers[0].notes || '';
+      workers[0].availabilityNotes = body.notes || '';
     }
     setMockData('workers', workers);
     return { success: true, availabilityStatus: body.status, profile: workers[0] };
+  }
+
+  if (path.startsWith('/workers/upload-cv')) {
+    const workers = getMockData('workers', []);
+    const fileUrl = `/uploads/mock-cv-${Date.now()}.pdf`;
+    workers[0].cvPdfUrl = fileUrl;
+    setMockData('workers', workers);
+    return { success: true, cvPdfUrl: fileUrl };
+  }
+
+  if (path.startsWith('/workers/upload-photo')) {
+    const workers = getMockData('workers', []);
+    const fileUrl = body.base64Data; // Just return base64 for mock
+    workers[0].photoUrl = fileUrl;
+    setMockData('workers', workers);
+    return { success: true, photoUrl: fileUrl };
   }
 
   if (path.startsWith('/companies/profile')) {
@@ -358,7 +383,9 @@ export const api = {
     getNotifications: () => request('GET', '/workers/notifications'),
     markNotificationRead: (id: string) => request('PUT', `/workers/notifications/${id}/read`),
     getInterviews: () => request('GET', '/workers/interviews'),
-    respondToInterview: (id: string, status: string) => request('PUT', `/workers/interviews/${id}/respond`, { status })
+    respondToInterview: (id: string, status: string) => request('PUT', `/workers/interviews/${id}/respond`, { status }),
+    uploadCv: (body: any) => request('POST', '/workers/upload-cv', body),
+    uploadPhoto: (body: any) => request('POST', '/workers/upload-photo', body)
   },
   company: {
     getProfile: () => request('GET', '/companies/profile'),

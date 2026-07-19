@@ -46,6 +46,7 @@ model WorkerProfile {
   availabilityContracts        String   @default("[]")
   availabilityRoles            String   @default("[]")
   notes                        String?
+  availabilityNotes            String?
   cvPdfUrl             String?
   videoPresentationUrl String?
   createdAt            DateTime           @default(now())

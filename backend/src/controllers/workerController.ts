@@ -147,8 +147,11 @@ export const toggleAvailability = async (req: any, res: Response) => {
           availabilityContracts: contractsStr || '[]',
           availabilityRoles: rolesStr || '[]',
           desiredSalary,
-          notes
+          availabilityNotes: notes
         } : {})
+      },
+      include: {
+        workExperiences: true
       }
     });
 
@@ -261,3 +264,93 @@ export const respondToInterviewRequest = async (req: any, res: Response) => {
     res.status(500).json({ error: 'Error responding to interview request' });
   }
 };
+
+export const uploadCv = async (req: any, res: Response) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { base64Data } = req.body;
+    
+    if (!base64Data) {
+      return res.status(400).json({ error: 'Nessun file fornito' });
+    }
+
+    // Extract the actual base64 content
+    const base64Content = base64Data.split(';base64,').pop();
+    const buffer = Buffer.from(base64Content, 'base64');
+
+    // Create a unique file name
+    const sanitizedFileName = `cv-${req.user.id}-${Date.now()}.pdf`;
+    const uploadsPath = path.join(__dirname, '../../uploads');
+    
+    // Ensure dir exists
+    if (!fs.existsSync(uploadsPath)) {
+      fs.mkdirSync(uploadsPath, { recursive: true });
+    }
+
+    const filePath = path.join(uploadsPath, sanitizedFileName);
+    fs.writeFileSync(filePath, buffer);
+
+    const fileUrl = `/uploads/${sanitizedFileName}`;
+
+    // Update database
+    await prisma.workerProfile.update({
+      where: { userId: req.user.id },
+      data: { cvPdfUrl: fileUrl }
+    });
+
+    res.json({
+      success: true,
+      cvPdfUrl: fileUrl
+    });
+  } catch (error: any) {
+    console.error('Error uploading CV PDF:', error);
+    res.status(500).json({ error: 'Errore durante il caricamento del file' });
+  }
+};
+
+export const uploadPhoto = async (req: any, res: Response) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { base64Data } = req.body;
+    
+    if (!base64Data) {
+      return res.status(400).json({ error: 'Nessuna foto fornita' });
+    }
+
+    // Extract the actual base64 content
+    const base64Content = base64Data.split(';base64,').pop();
+    const buffer = Buffer.from(base64Content, 'base64');
+
+    // Create a unique file name
+    const sanitizedFileName = `photo-${req.user.id}-${Date.now()}.jpg`;
+    const uploadsPath = path.join(__dirname, '../../uploads');
+    
+    // Ensure dir exists
+    if (!fs.existsSync(uploadsPath)) {
+      fs.mkdirSync(uploadsPath, { recursive: true });
+    }
+
+    const filePath = path.join(uploadsPath, sanitizedFileName);
+    fs.writeFileSync(filePath, buffer);
+
+    const fileUrl = `/uploads/${sanitizedFileName}`;
+
+    // Update database
+    await prisma.workerProfile.update({
+      where: { userId: req.user.id },
+      data: { photoUrl: fileUrl }
+    });
+
+    res.json({
+      success: true,
+      photoUrl: fileUrl
+    });
+  } catch (error: any) {
+    console.error('Error uploading profile photo:', error);
+    res.status(500).json({ error: 'Errore durante il caricamento della foto' });
+  }
+};
+
+

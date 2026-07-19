@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const companyController_1 = require("../controllers/companyController");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+router.use(auth_1.authenticateToken);
+router.get('/search', (0, auth_1.requireRole)(['COMPANY', 'ADMIN']), companyController_1.searchWorkers);
+router.get('/profile', (0, auth_1.requireRole)(['COMPANY']), companyController_1.getProfile);
+router.put('/profile', (0, auth_1.requireRole)(['COMPANY']), companyController_1.updateProfile);
+router.get('/workers/:id', (0, auth_1.requireRole)(['COMPANY']), companyController_1.getWorkerDetails);
+router.post('/favorites', (0, auth_1.requireRole)(['COMPANY']), companyController_1.toggleFavorite);
+router.get('/favorites', (0, auth_1.requireRole)(['COMPANY']), companyController_1.getFavorites);
+router.post('/interviews', (0, auth_1.requireRole)(['COMPANY']), companyController_1.requestInterview);
+exports.default = router;

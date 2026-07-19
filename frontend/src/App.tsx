@@ -143,21 +143,39 @@ function App() {
             )}
 
             <ul className="nav-menu">
-              <li className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => handleNavigate('home')}>Home</li>
-              <li className={`nav-link ${currentPage === 'wordpress' ? 'active' : ''}`} onClick={() => handleNavigate('wordpress')}>Sito WordPress</li>
+              {!(currentUser && currentUser.role === 'WORKER') && (
+                <li className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => handleNavigate('home')}>Home</li>
+              )}
+              {!(currentUser && currentUser.role === 'WORKER') && (
+                <li className={`nav-link ${currentPage === 'wordpress' ? 'active' : ''}`} onClick={() => handleNavigate('wordpress')}>Sito WordPress</li>
+              )}
               {currentUser && currentUser.role === 'ADMIN' && (
                 <li className={`nav-link ${currentPage === 'admin' ? 'active' : ''}`} onClick={() => handleNavigate('admin')}>Admin</li>
               )}
-              {currentUser && currentUser.role !== 'ADMIN' && (
+              {currentUser && currentUser.role !== 'ADMIN' && !(currentUser && currentUser.role === 'WORKER') && (
                 <li className={`nav-link ${currentPage === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavigate('dashboard')}>Dashboard</li>
               )}
             </ul>
 
             {currentUser ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{currentUser.email}</span>
-                <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={handleLogout}>Esci</button>
-              </div>
+              currentUser.role === 'WORKER' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: '1.2' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                      {currentUser.profile?.firstName || ''} {currentUser.profile?.lastName || ''}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      {currentUser.email}
+                    </span>
+                  </div>
+                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={handleLogout}>Esci</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{currentUser.email}</span>
+                  <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={handleLogout}>Esci</button>
+                </div>
+              )
             ) : (
               <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => handleNavigate('login', 'WORKER')}>Accedi</button>
             )}
@@ -192,15 +210,17 @@ function App() {
               {renderDashboardContent()}
             </MobileSimulator>
           ) : (
-            <div className="container" style={{ padding: '40px 24px' }}>
-              <div className="flex-between mb-24">
-                <div>
-                  <h2 style={{ background: 'var(--grad-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    {currentUser.role === 'WORKER' ? 'Area Candidato' : 'Area Ricerca Personale'}
-                  </h2>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Gestisci e visualizza i tuoi dati in modalità portale web responsive.</p>
+            <div className="container" style={{ padding: currentUser.role === 'WORKER' ? '20px 24px' : '40px 24px' }}>
+              {currentUser.role !== 'WORKER' && (
+                <div className="flex-between mb-24">
+                  <div>
+                    <h2 style={{ background: 'var(--grad-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                      Area Ricerca Personale
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Cerca i migliori candidati e gestisci le tue proposte di lavoro.</p>
+                  </div>
                 </div>
-              </div>
+              )}
               <div style={{ maxWidth: '900px', margin: '0 auto' }}>
                 {renderDashboardContent()}
               </div>

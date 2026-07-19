@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const workerController_1 = require("../controllers/workerController");
+const auth_1 = require("../middleware/auth");
+const router = (0, express_1.Router)();
+// Apply auth token to all worker routes
+router.use(auth_1.authenticateToken);
+router.get('/profile', (0, auth_1.requireRole)(['WORKER']), workerController_1.getProfile);
+router.put('/profile', (0, auth_1.requireRole)(['WORKER']), workerController_1.updateProfile);
+router.put('/availability', (0, auth_1.requireRole)(['WORKER']), workerController_1.toggleAvailability);
+router.post('/upload-cv', (0, auth_1.requireRole)(['WORKER']), workerController_1.uploadCv);
+router.post('/upload-photo', (0, auth_1.requireRole)(['WORKER']), workerController_1.uploadPhoto);
+router.get('/notifications', workerController_1.getNotifications);
+router.put('/notifications/:id/read', workerController_1.markNotificationRead);
+router.get('/interviews', (0, auth_1.requireRole)(['WORKER']), workerController_1.getInterviewRequests);
+router.put('/interviews/:id/respond', (0, auth_1.requireRole)(['WORKER']), workerController_1.respondToInterviewRequest);
+exports.default = router;

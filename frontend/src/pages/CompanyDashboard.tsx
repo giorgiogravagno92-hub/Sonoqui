@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { DIPLOMAS, DEGREES, PROFESSIONS, CITIES } from '../utils/constants';
+import { DIPLOMAS, DEGREES, PROFESSIONS, CITIES, ORGANIZATIONAL_SKILLS_LIST, COMMUNICATIVE_SKILLS_LIST } from '../utils/constants';
 
 interface CompanyDashboardProps {
   onNotifyMobile?: (title: string, message: string) => void;
@@ -557,12 +557,12 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
       {/* Candidate Profile Details Drawer / Modal */}
       {selectedCandidate && (
         <div className="modal-overlay" onClick={() => setSelectedCandidate(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '24px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-close" onClick={() => setSelectedCandidate(null)}>&times;</div>
             
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px' }}>
               <img 
-                src={selectedCandidate.photoUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=60'} 
+                src={selectedCandidate.photoUrl ? (api.isOffline() ? selectedCandidate.photoUrl : `http://localhost:5000${selectedCandidate.photoUrl}`) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=60'} 
                 alt="avatar" 
                 style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover' }}
               />
@@ -595,10 +595,30 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                       {edus.map((edu: any, i: number) => {
                         const label = edu.level === 'LICENZA_MEDIA' ? 'Licenza Media' : 
                                       edu.level === 'DIPLOMA' ? 'Diploma' : 
-                                      edu.level === 'LAUREA' ? 'Laurea' : edu.level;
+                                      edu.level === 'LAUREA' ? 'Laurea' : 
+                                      edu.level === 'MASTER' ? 'Master' : edu.level;
+                        
+                        let details = '';
+                        if (edu.level === 'DIPLOMA') {
+                          const dateStr = edu.inData ? ` (Conseguito in data: ${edu.inData})` : '';
+                          const gradeStr = edu.votazione ? `, Votazione: ${edu.votazione}` : '';
+                          details = `${edu.field || ''}${dateStr}${gradeStr}`;
+                        } else if (edu.level === 'LAUREA') {
+                          const uniStr = edu.conseguitoPresso ? ` presso ${edu.conseguitoPresso}` : '';
+                          const dateStr = edu.inData ? ` in data: ${edu.inData}` : '';
+                          const gradeStr = edu.votazione ? `, Votazione: ${edu.votazione}` : '';
+                          details = `${edu.field || ''}${uniStr}${dateStr}${gradeStr}`;
+                        } else if (edu.level === 'MASTER') {
+                          const uniStr = edu.conseguitoPresso ? ` presso ${edu.conseguitoPresso}` : '';
+                          const dateStr = edu.inData ? ` in data: ${edu.inData}` : '';
+                          details = `${edu.field || 'Master'}${uniStr}${dateStr}`;
+                        } else {
+                          details = edu.field || '';
+                        }
+                        
                         return (
                           <li key={i}>
-                            {label} {edu.field ? ` - ${edu.field}` : ''}
+                            <strong>{label}</strong>{details ? `: ${details}` : ''}
                           </li>
                         );
                       })}
@@ -655,8 +675,15 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
 
               {selectedCandidate.notes && (
                 <div>
-                  <strong>Note del candidato:</strong>{' '}
+                  <strong>Note / Presentazione del Candidato:</strong>{' '}
                   <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>"{selectedCandidate.notes}"</span>
+                </div>
+              )}
+
+              {selectedCandidate.availabilityNotes && (
+                <div>
+                  <strong>Note Aggiuntive per le Aziende (Disponibilità):</strong>{' '}
+                  <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>"{selectedCandidate.availabilityNotes}"</span>
                 </div>
               )}
 
@@ -664,7 +691,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
 
               <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {(() => {
-                  let parsed = { computerSkills: {}, organizationalSkills: {} };
+                  let parsed: any = { computerSkills: {}, organizationalSkills: {} };
                   try {
                     parsed = JSON.parse(selectedCandidate.skills || '{}');
                   } catch (e) {
@@ -684,34 +711,96 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                     return null;
                   }
 
-                  const compSkills = parsed.computerSkills || {};
-                  const orgSkills = parsed.organizationalSkills || {};
-                  const compKeys = Object.keys(compSkills);
-                  const orgKeys = Object.keys(orgSkills);
+                  const sortSkillsByLevel = (keys: string[], skillsMap: Record<string, string>) => {
+                    const levelOrder: Record<string, number> = {
+                      'Avanzato': 1,
+                      'Intermedio': 2,
+                      'Base': 3
+                    };
+                    return [...keys].sort((a, b) => {
+                      const lvlA = skillsMap[a] || '';
+                      const lvlB = skillsMap[b] || '';
+                      const oA = levelOrder[lvlA] || 99;
+                      const oB = levelOrder[lvlB] || 99;
+                      if (oA !== oB) return oA - oB;
+                      return a.localeCompare(b);
+                    });
+                  };
+
+                  const compSkills = (parsed.computerSkills || {}) as any;
+                  const orgSkills = (parsed.organizationalSkills || {}) as any;
+                  const langSkills = (parsed.languageSkills || {}) as any;
+                  const commSkills = (parsed.communicativeSkills || {}) as any;
+
+                  const compKeys = sortSkillsByLevel(Object.keys(compSkills), compSkills);
+                  const orgKeys = sortSkillsByLevel(Object.keys(orgSkills), orgSkills);
+                  const langKeys = sortSkillsByLevel(Object.keys(langSkills).filter(k => langSkills[k] && langSkills[k] !== 'Nessuna'), langSkills);
+                  const commKeys = sortSkillsByLevel(Object.keys(commSkills).filter(k => commSkills[k] && commSkills[k] !== 'Nessuna'), commSkills);
 
                   return (
                     <>
                       {compKeys.length > 0 && (
-                        <div>
+                        <div style={{ marginBottom: '10px' }}>
                           <strong>Competenze Informatiche:</strong>
-                          <div className="tag-list" style={{ marginTop: '4px' }}>
+                          <div className="tag-list" style={{ marginTop: '6px' }}>
                             {compKeys.map(skill => (
-                              <span key={skill} className="tag" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', color: 'var(--accent-blue)' }}>
-                                {skill} ({compSkills[skill]})
+                              <span key={skill} className="tag" style={{ background: 'rgba(0,0,0,0.03)', borderColor: 'var(--border-glass)', color: '#000000', fontWeight: 'bold', fontSize: '0.85rem', padding: '6px 12px', borderRadius: '6px' }}>
+                                {skill} <span style={{ color: 'var(--accent-blue)', marginLeft: '4px' }}>({compSkills[skill]})</span>
                               </span>
                             ))}
                           </div>
                         </div>
                       )}
-                      {orgKeys.length > 0 && (
-                        <div>
-                          <strong>Competenze Organizzative:</strong>
-                          <div className="tag-list" style={{ marginTop: '4px' }}>
-                            {orgKeys.map(skill => (
-                              <span key={skill} className="tag" style={{ borderColor: 'rgba(16, 185, 129, 0.3)', color: 'var(--accent-green)' }}>
-                                {skill} ({orgSkills[skill]})
+                      {langKeys.length > 0 && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <strong>Competenze Linguistiche:</strong>
+                          <div className="tag-list" style={{ marginTop: '6px', marginBottom: '6px' }}>
+                            {langKeys.map(skill => (
+                              <span key={skill} className="tag" style={{ background: 'rgba(0,0,0,0.03)', borderColor: 'var(--border-glass)', color: '#000000', fontWeight: 'bold', fontSize: '0.85rem', padding: '6px 12px', borderRadius: '6px' }}>
+                                {skill} <span style={{ color: 'var(--accent-blue)', marginLeft: '4px' }}>({langSkills[skill]})</span>
                               </span>
                             ))}
+                          </div>
+                          
+                          {/* Legenda livelli nelle competenze linguistiche del CV */}
+                          <div style={{ background: 'rgba(255,255,255,0.01)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-glass)', fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                            <strong style={{ color: '#fff', fontSize: '0.75rem', display: 'block', marginBottom: '2px' }}>Legenda Livelli Lingue:</strong>
+                            <ul style={{ paddingLeft: '12px', margin: 0, listStyleType: 'disc' }}>
+                              <li><strong>Nessuna:</strong> Non si possiedono conoscenze della lingua.</li>
+                              <li><strong>Base:</strong> Si comprendono e si usano parole ed espressioni semplici; si riesce a comunicare in situazioni quotidiane essenziali.</li>
+                              <li><strong>Intermedio:</strong> Si comprende il significato generale di conversazioni e testi; si comunica con una buona autonomia su argomenti comuni.</li>
+                              <li><strong>Avanzato:</strong> Si utilizza la lingua con scioltezza e precisione, sia nel parlato che nello scritto, anche in contesti complessi o professionali.</li>
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                      {orgKeys.length > 0 && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <strong>Competenze Organizzative:</strong>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                            {orgKeys.map(skill => {
+                              const desc = ORGANIZATIONAL_SKILLS_LIST.find(s => s.name === skill)?.description || '';
+                              return (
+                                <div key={skill} style={{ fontSize: '0.8rem', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: '#000000', fontWeight: 'bold', lineHeight: '1.4' }}>
+                                  {skill} – {desc} <span style={{ color: 'var(--accent-blue)', marginLeft: '4px' }}>({orgSkills[skill]})</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {commKeys.length > 0 && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <strong>Competenze Comunicative e Relazionali:</strong>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                            {commKeys.map(skill => {
+                              const desc = COMMUNICATIVE_SKILLS_LIST.find(s => s.name === skill)?.description || '';
+                              return (
+                                <div key={skill} style={{ fontSize: '0.8rem', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: '#000000', fontWeight: 'bold', lineHeight: '1.4' }}>
+                                  {skill} – {desc} <span style={{ color: 'var(--accent-blue)', marginLeft: '4px' }}>({commSkills[skill]})</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -732,30 +821,69 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
               )}
 
               {/* Sezione Esperienze Lavorative nel Dettaglio Candidato */}
-              <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+              <div style={{ marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '8px' }}>
                 <strong style={{ fontSize: '0.9rem', color: '#fff', display: 'block', marginBottom: '8px' }}>
-                  💼 Esperienze Lavorative Precedenti:
+                  Esperienze lavorative:
                 </strong>
                 {selectedCandidate.workExperiences && selectedCandidate.workExperiences.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {selectedCandidate.workExperiences.map((exp: any, idx: number) => (
-                      <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', padding: '10px', borderRadius: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', marginBottom: '2px' }}>
-                          <strong style={{ color: '#fff', fontSize: '0.8rem' }}>{exp.role}</strong>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            {exp.startDate} - {exp.endDate || 'Presente'}
-                          </span>
+                    {selectedCandidate.workExperiences.map((exp: any, idx: number) => {
+                      const calculateDuration = (startStr: string, endStr: string) => {
+                        if (!startStr) return '';
+                        const start = new Date(startStr);
+                        const end = (!endStr || endStr === 'Presente') ? new Date() : new Date(endStr);
+                        if (isNaN(start.getTime()) || isNaN(end.getTime())) return '';
+                        let years = end.getFullYear() - start.getFullYear();
+                        let months = end.getMonth() - start.getMonth();
+                        if (end.getDate() < start.getDate()) {
+                          months -= 1;
+                        }
+                        if (months < 0) {
+                          years -= 1;
+                          months += 12;
+                        }
+                        if (years === 0 && months === 0) {
+                          return '1 mese';
+                        }
+                        const parts = [];
+                        if (years > 0) parts.push(years === 1 ? '1 anno' : `${years} anni`);
+                        if (months > 0) parts.push(months === 1 ? '1 mese' : `${months} mesi`);
+                        return parts.join(' e ');
+                      };
+
+                      const formatDateItalian = (dateStr: string) => {
+                        if (!dateStr) return '';
+                        if (dateStr === 'Presente') return 'Presente';
+                        const parts = dateStr.split('-');
+                        if (parts.length === 3) {
+                          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        }
+                        return dateStr;
+                      };
+
+                      const duration = calculateDuration(exp.startDate, exp.endDate);
+
+                      return (
+                        <div key={idx} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', padding: '10px', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                            <strong style={{ color: '#fff', fontSize: '0.85rem' }}>
+                              {exp.roles && exp.roles.length > 0 ? exp.roles.join(', ') : exp.role}
+                            </strong>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--accent-blue)', fontWeight: 'bold' }}>
+                              📅 Dal {formatDateItalian(exp.startDate)} al {formatDateItalian(exp.endDate || 'Presente')} {duration && `(${duration})`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.85rem', color: '#000000', fontWeight: 'bold', marginTop: '2px' }}>
+                            🏢 {exp.companyName || 'Azienda non specificata'} {exp.city ? `• ${exp.city}` : ''} {exp.province ? `(${exp.sigla ? exp.sigla : exp.province})` : ''}
+                          </div>
+                          {exp.description && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', margin: '4px 0 0 0', lineHeight: '1.45', whiteSpace: 'pre-wrap' }}>
+                              {exp.description}
+                            </p>
+                          )}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                          🏢 {exp.companyName || 'Azienda non specificata'} {exp.city ? `• ${exp.city}` : ''} {exp.province ? `(${exp.sigla ? exp.sigla : exp.province})` : ''}
-                        </div>
-                        {exp.description && (
-                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '4px 0 0 0', lineHeight: '1.4', fontStyle: 'italic' }}>
-                            {exp.description}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Nessuna esperienza inserita nel CV.</p>
@@ -767,7 +895,17 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', marginBottom: '20px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <h5 style={{ fontSize: '0.8rem' }}>📁 Allegati e Video</h5>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }} onClick={() => alert('Download simulato del file PDF strutturato.')}>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }} 
+                  disabled={!selectedCandidate.cvPdfUrl}
+                  onClick={() => {
+                    if (selectedCandidate.cvPdfUrl) {
+                      const backendUrl = api.isOffline() ? '' : 'http://localhost:5000';
+                      window.open(backendUrl + selectedCandidate.cvPdfUrl, '_blank');
+                    }
+                  }}
+                >
                   📄 {selectedCandidate.cvPdfUrl ? 'Apri CV PDF' : 'Nessun PDF allegato'}
                 </button>
                 <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', flex: 1 }} onClick={() => alert('Apertura player video presentatore.')}>
