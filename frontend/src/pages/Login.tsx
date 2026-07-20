@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import { api } from '../utils/api';
+import { CITIES, PROVINCE_SIGLE, COMPANY_SECTORS } from '../utils/constants';
 
 interface LoginProps {
   initialRole: string; // 'WORKER' or 'COMPANY'
   onLoginSuccess: (user: any, token: string) => void;
 }
+
+const formatCapitalizedWords = (str: string) => {
+  if (!str) return '';
+  return str
+    .split(' ')
+    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
+    .join(' ');
+};
 
 export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,29 +23,15 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
   const [companyName, setCompanyName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [companyType, setCompanyType] = useState<'AZIENDA' | 'PERSONA_FISICA'>('AZIENDA');
   const [address, setAddress] = useState('');
-  const [vatNumber, setVatNumber] = useState('IT');
-  const [residenzaCapCitta, setResidenzaCapCitta] = useState('');
-  const [fiscalCode, setFiscalCode] = useState('');
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [sigla, setSigla] = useState('');
+  const [sector, setSector] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleVatChange = (val: string) => {
-    let digits = val.replace(/[^0-9]/g, '');
-    if (digits.length > 11) {
-      digits = digits.slice(0, 11);
-    }
-    setVatNumber('IT' + digits);
-  };
 
-  const handleFiscalCodeChange = (val: string) => {
-    let clean = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    if (clean.length > 16) {
-      clean = clean.slice(0, 16);
-    }
-    setFiscalCode(clean);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,17 +47,13 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
         // Registration
         let profileData: any = {};
         if (role === 'COMPANY') {
-          profileData.companyType = companyType;
-          if (companyType === 'AZIENDA') {
-            profileData.companyName = companyName;
-            profileData.address = address;
-            profileData.vatNumber = vatNumber;
-          } else {
-            profileData.firstName = firstName;
-            profileData.lastName = lastName;
-            profileData.residenzaCapCitta = residenzaCapCitta;
-            profileData.fiscalCode = fiscalCode;
-          }
+          profileData.companyName = companyName;
+          profileData.address = address;
+          profileData.city = city;
+          profileData.province = province;
+          profileData.sigla = sigla;
+          profileData.sector = sector;
+          profileData.industry = sector;
         } else {
           profileData.firstName = firstName;
           profileData.lastName = lastName;
@@ -143,137 +134,88 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
           )}
 
           {!isLogin && role === 'COMPANY' && (
-            <div style={{ marginBottom: '20px' }}>
-              <label className="form-label" style={{ display: 'block', marginBottom: '8px' }}>Tipo di Profilo</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{
-                    padding: '10px',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    background: companyType === 'AZIENDA' ? 'var(--accent-blue)' : 'transparent',
-                    color: companyType === 'AZIENDA' ? '#fff' : 'var(--text-muted)',
-                    border: '1px solid ' + (companyType === 'AZIENDA' ? 'var(--accent-blue)' : 'rgba(255,255,255,0.1)'),
-                    borderRadius: '8px',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setCompanyType('AZIENDA')}
-                >
-                  🏢 Azienda
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{
-                    padding: '10px',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    background: companyType === 'PERSONA_FISICA' ? 'var(--accent-blue)' : 'transparent',
-                    color: companyType === 'PERSONA_FISICA' ? '#fff' : 'var(--text-muted)',
-                    border: '1px solid ' + (companyType === 'PERSONA_FISICA' ? 'var(--accent-blue)' : 'rgba(255,255,255,0.1)'),
-                    borderRadius: '8px',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setCompanyType('PERSONA_FISICA')}
-                >
-                  👤 Persona Fisica
-                </button>
+            <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Nome azienda</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={companyName} 
+                  onChange={(e) => setCompanyName(e.target.value)} 
+                  required 
+                />
               </div>
 
-              {/* Conditional Fields */}
-              {companyType === 'AZIENDA' ? (
-                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Nome Azienda</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={companyName} 
-                      onChange={(e) => setCompanyName(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Indirizzo</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={address} 
-                      onChange={(e) => setAddress(e.target.value)} 
-                      placeholder="es. Via Roma 12"
-                      required 
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Partita IVA</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={vatNumber} 
-                      onChange={(e) => handleVatChange(e.target.value)} 
-                      placeholder="IT + 11 numeri"
-                      pattern="IT[0-9]{11}"
-                      maxLength={13}
-                      minLength={13}
-                      title="Partita IVA deve iniziare con 'IT' seguito da esattamente 11 cifre numeriche"
-                      required 
-                    />
-                  </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Indirizzo sede operativa</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={address} 
+                  onChange={(e) => setAddress(formatCapitalizedWords(e.target.value))} 
+                  required 
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: '10px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Città</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    value={city} 
+                    onChange={(e) => setCity(formatCapitalizedWords(e.target.value))} 
+                    required 
+                  />
                 </div>
-              ) : (
-                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Nome</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        value={firstName} 
-                        onChange={(e) => setFirstName(e.target.value)} 
-                        required 
-                      />
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Cognome</label>
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        value={lastName} 
-                        onChange={(e) => setLastName(e.target.value)} 
-                        required 
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Residenza (CAP e Città)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={residenzaCapCitta} 
-                      onChange={(e) => setResidenzaCapCitta(e.target.value)} 
-                      placeholder="es. 00100 Roma"
-                      required 
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Codice Fiscale</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={fiscalCode} 
-                      onChange={(e) => handleFiscalCodeChange(e.target.value)} 
-                      placeholder="16 caratteri alfanumerici"
-                      pattern="[A-Z0-9]{16}"
-                      maxLength={16}
-                      minLength={16}
-                      title="Codice Fiscale deve essere di esattamente 16 caratteri alfanumerici"
-                      required 
-                    />
-                  </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Provincia</label>
+                  <select 
+                    className="form-control" 
+                    value={province} 
+                    onChange={(e) => {
+                      const p = e.target.value;
+                      setProvince(p);
+                      setSigla(PROVINCE_SIGLE[p] || '');
+                    }}
+                    required
+                  >
+                    <option value="">-- Seleziona --</option>
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
-              )}
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Sigla</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    value={sigla} 
+                    readOnly 
+                    disabled
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}
+                    placeholder="Auto"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Settore operativo</label>
+                <select 
+                  className="form-control" 
+                  value={sector} 
+                  onChange={(e) => setSector(e.target.value)}
+                  required
+                >
+                  <option value="">-- Seleziona Settore Operativo --</option>
+                  {COMPANY_SECTORS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 

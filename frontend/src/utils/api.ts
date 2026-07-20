@@ -224,17 +224,14 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
     localStorage.setItem('sono_qui_token', 'mock-jwt-token-1234');
     if (role === 'COMPANY') {
       setMockData('company_profile', {
-        companyType: profileData?.companyType || 'AZIENDA',
+        companyType: 'AZIENDA',
         companyName: profileData?.companyName || null,
         address: profileData?.address || null,
-        vatNumber: profileData?.vatNumber || null,
-        firstName: profileData?.firstName || null,
-        lastName: profileData?.lastName || null,
-        residenzaCapCitta: profileData?.residenzaCapCitta || null,
-        fiscalCode: profileData?.fiscalCode || null,
-        industry: 'Altro',
-        city: profileData?.companyType === 'AZIENDA' ? 'Roma' : (profileData?.residenzaCapCitta || 'Roma'),
-        contactPerson: profileData?.companyType === 'AZIENDA' ? 'Referente' : `${profileData?.firstName} ${profileData?.lastName}`,
+        city: profileData?.city || null,
+        province: profileData?.province || null,
+        sigla: profileData?.sigla || null,
+        industry: profileData?.sector || profileData?.industry || 'Altro',
+        contactPerson: profileData?.companyName || 'Referente',
         contactPhone: null
       });
     }

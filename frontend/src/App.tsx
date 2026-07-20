@@ -143,17 +143,18 @@ function App() {
             )}
 
             <ul className="nav-menu">
-              {!(currentUser && currentUser.role === 'WORKER') && (
-                <li className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => handleNavigate('home')}>Home</li>
-              )}
-              {!(currentUser && currentUser.role === 'WORKER') && (
-                <li className={`nav-link ${currentPage === 'wordpress' ? 'active' : ''}`} onClick={() => handleNavigate('wordpress')}>Sito WordPress</li>
+              {!currentUser && (
+                <>
+                  <li className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => handleNavigate('home')}>Home</li>
+                  <li className={`nav-link ${currentPage === 'wordpress' ? 'active' : ''}`} onClick={() => handleNavigate('wordpress')}>Sito WordPress</li>
+                </>
               )}
               {currentUser && currentUser.role === 'ADMIN' && (
-                <li className={`nav-link ${currentPage === 'admin' ? 'active' : ''}`} onClick={() => handleNavigate('admin')}>Admin</li>
-              )}
-              {currentUser && currentUser.role !== 'ADMIN' && !(currentUser && currentUser.role === 'WORKER') && (
-                <li className={`nav-link ${currentPage === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavigate('dashboard')}>Dashboard</li>
+                <>
+                  <li className={`nav-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => handleNavigate('home')}>Home</li>
+                  <li className={`nav-link ${currentPage === 'wordpress' ? 'active' : ''}`} onClick={() => handleNavigate('wordpress')}>Sito WordPress</li>
+                  <li className={`nav-link ${currentPage === 'admin' ? 'active' : ''}`} onClick={() => handleNavigate('admin')}>Admin</li>
+                </>
               )}
             </ul>
 

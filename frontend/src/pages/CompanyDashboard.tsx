@@ -15,6 +15,14 @@ const capitalizeCity = (str: string) => {
     .join(' ');
 };
 
+const formatCapitalizedWords = (str: string) => {
+  if (!str) return '';
+  return str
+    .split(' ')
+    .map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '')
+    .join(' ');
+};
+
 const formatNumberThousands = (val: string) => {
   if (!val) return '';
   const cleanDigits = val.replace(/\D/g, '');
@@ -47,12 +55,14 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
   const [selectedProfessions, setSelectedProfessions] = useState<string[]>([]);
   
   // Location 1
+  const [loc1Address, setLoc1Address] = useState('');
   const [loc1City, setLoc1City] = useState('');
   const [loc1Province, setLoc1Province] = useState('');
   const [loc1Sigla, setLoc1Sigla] = useState('');
 
   // Location 2 (optional)
   const [hasLoc2, setHasLoc2] = useState(false);
+  const [loc2Address, setLoc2Address] = useState('');
   const [loc2City, setLoc2City] = useState('');
   const [loc2Province, setLoc2Province] = useState('');
   const [loc2Sigla, setLoc2Sigla] = useState('');
@@ -89,10 +99,20 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
       if (prof) {
         setCompanyProfile(prof);
         setProfileFormData(prof);
+        if (!editingProposalId) {
+          setLoc1Address(prof.address || '');
+          setLoc1City(prof.city || '');
+          setLoc1Province(prof.province || '');
+          setLoc1Sigla(prof.sigla || (prof.province ? (PROVINCE_SIGLE[prof.province] || '') : ''));
+        }
       }
     } catch (err) {
       console.log('Error fetching company profile, using default mock');
       setProfileFormData(companyProfile);
+      setLoc1Address(companyProfile.address || '');
+      setLoc1City(companyProfile.city || '');
+      setLoc1Province(companyProfile.province || '');
+      setLoc1Sigla(companyProfile.sigla || '');
     }
   };
 
@@ -131,13 +151,15 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
     setSelectedProfessions(selectedProfessions.filter(p => p !== prof));
   };
 
-  const resetProposalForm = () => {
+  const resetProposalForm = (prof = companyProfile) => {
     setEditingProposalId(null);
     setSelectedProfessions([]);
-    setLoc1City('');
-    setLoc1Province('');
-    setLoc1Sigla('');
+    setLoc1Address(prof?.address || '');
+    setLoc1City(prof?.city || '');
+    setLoc1Province(prof?.province || '');
+    setLoc1Sigla(prof?.sigla || (prof?.province ? (PROVINCE_SIGLE[prof.province] || '') : ''));
     setHasLoc2(false);
+    setLoc2Address('');
     setLoc2City('');
     setLoc2Province('');
     setLoc2Sigla('');
@@ -159,17 +181,20 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
     let parsedLocs: any[] = [];
     try { parsedLocs = JSON.parse(prop.locations || '[]'); } catch (e) {}
     if (parsedLocs.length > 0) {
+      setLoc1Address(parsedLocs[0].address || '');
       setLoc1City(parsedLocs[0].city || '');
       setLoc1Province(parsedLocs[0].province || '');
       setLoc1Sigla(parsedLocs[0].sigla || '');
     }
     if (parsedLocs.length > 1) {
       setHasLoc2(true);
+      setLoc2Address(parsedLocs[1].address || '');
       setLoc2City(parsedLocs[1].city || '');
       setLoc2Province(parsedLocs[1].province || '');
       setLoc2Sigla(parsedLocs[1].sigla || '');
     } else {
       setHasLoc2(false);
+      setLoc2Address('');
       setLoc2City('');
       setLoc2Province('');
       setLoc2Sigla('');
@@ -213,11 +238,11 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
     }
 
     const locationsArr = [
-      { city: loc1City, province: loc1Province, sigla: loc1Sigla }
+      { address: loc1Address, city: loc1City, province: loc1Province, sigla: loc1Sigla }
     ];
 
     if (hasLoc2 && loc2Province) {
-      locationsArr.push({ city: loc2City, province: loc2Province, sigla: loc2Sigla });
+      locationsArr.push({ address: loc2Address, city: loc2City, province: loc2Province, sigla: loc2Sigla });
     }
 
     const payload = {
@@ -654,11 +679,23 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                 )}
               </div>
 
-              {/* 2. Sede di Lavoro (Città, Provincia, Sigla + Opzione Seconda Sede) */}
+              {/* 2. Sede di Lavoro (Indirizzo, Città, Provincia, Sigla + Opzione Seconda Sede) */}
               <div>
                 <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block', fontSize: '0.9rem' }}>
                   Sede di Lavoro Principale *
                 </label>
+
+                <div className="form-group" style={{ marginBottom: '10px' }}>
+                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Indirizzo sede operativa (compilabile manualmente)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={loc1Address}
+                    onChange={(e) => setLoc1Address(formatCapitalizedWords(e.target.value))}
+                    placeholder="es. Via Roma 12"
+                    autoComplete="off"
+                  />
+                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: '10px', marginBottom: '10px' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -667,7 +704,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                       type="text"
                       className="form-control"
                       value={loc1City}
-                      onChange={(e) => setLoc1City(capitalizeCity(e.target.value))}
+                      onChange={(e) => setLoc1City(formatCapitalizedWords(e.target.value))}
                       autoComplete="off"
                       required
                     />
@@ -720,7 +757,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                   </button>
                 ) : (
                   <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px dashed #cbd5e1', marginTop: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--accent-blue)', margin: 0 }}>
                         Seconda Sede di Lavoro
                       </label>
@@ -728,6 +765,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                         type="button"
                         onClick={() => {
                           setHasLoc2(false);
+                          setLoc2Address('');
                           setLoc2City('');
                           setLoc2Province('');
                           setLoc2Sigla('');
@@ -738,6 +776,18 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                       </button>
                     </div>
 
+                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Indirizzo sede operativa</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={loc2Address}
+                        onChange={(e) => setLoc2Address(formatCapitalizedWords(e.target.value))}
+                        placeholder="es. Corso Italia 45"
+                        autoComplete="off"
+                      />
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: '10px' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.7rem' }}>Città</label>
@@ -745,7 +795,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                           type="text"
                           className="form-control"
                           value={loc2City}
-                          onChange={(e) => setLoc2City(capitalizeCity(e.target.value))}
+                          onChange={(e) => setLoc2City(formatCapitalizedWords(e.target.value))}
                           autoComplete="off"
                         />
                       </div>
@@ -968,7 +1018,7 @@ export const CompanyDashboard: React.FC<CompanyDashboardProps> = ({ onNotifyMobi
                       <div>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Sede di Lavoro</span>
                         <strong style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                          {locsList.map(l => `${l.city || ''} (${l.sigla || l.province})`).join(' | ')}
+                          {locsList.map(l => `${l.address ? `${l.address}, ` : ''}${l.city || ''} (${l.sigla || l.province})`).join(' | ')}
                         </strong>
                       </div>
                       <div>

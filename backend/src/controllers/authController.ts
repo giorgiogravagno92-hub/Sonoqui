@@ -53,21 +53,17 @@ export const register = async (req: Request, res: Response) => {
           }
         });
       } else if (role === 'COMPANY') {
-        const companyType = profileData?.companyType || 'AZIENDA';
         await tx.companyProfile.create({
           data: {
             userId: newUser.id,
-            companyType,
-            companyName: companyType === 'AZIENDA' ? (profileData?.companyName || 'Nuova Azienda') : null,
-            address: companyType === 'AZIENDA' ? profileData?.address : null,
-            vatNumber: companyType === 'AZIENDA' ? profileData?.vatNumber : null,
-            firstName: companyType === 'PERSONA_FISICA' ? profileData?.firstName : null,
-            lastName: companyType === 'PERSONA_FISICA' ? profileData?.lastName : null,
-            residenzaCapCitta: companyType === 'PERSONA_FISICA' ? profileData?.residenzaCapCitta : null,
-            fiscalCode: companyType === 'PERSONA_FISICA' ? profileData?.fiscalCode : null,
-            industry: 'Altro',
-            city: companyType === 'AZIENDA' ? 'Roma' : (profileData?.residenzaCapCitta || 'Roma'),
-            contactPerson: companyType === 'AZIENDA' ? 'Referente' : `${profileData?.firstName} ${profileData?.lastName}`,
+            companyType: 'AZIENDA',
+            companyName: profileData?.companyName || 'Nuova Azienda',
+            address: profileData?.address || null,
+            city: profileData?.city || null,
+            province: profileData?.province || null,
+            sigla: profileData?.sigla || null,
+            industry: profileData?.sector || profileData?.industry || 'Altro',
+            contactPerson: profileData?.companyName || 'Referente',
           }
         });
       }

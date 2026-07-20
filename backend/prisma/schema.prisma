@@ -71,6 +71,8 @@ model CompanyProfile {
   fiscalCode        String?
   industry          String?
   city              String?
+  province          String?
+  sigla             String?
   contactPerson     String?
   contactPhone      String?
   logoUrl           String?
