@@ -54,6 +54,7 @@ model WorkerProfile {
   favoritedBy          Favorite[]
   interviewRequests    InterviewRequest[]
   workExperiences      WorkExperience[]
+  proposalResponses    ProposalResponse[]
 }
 
 model CompanyProfile {
@@ -77,6 +78,37 @@ model CompanyProfile {
   updatedAt         DateTime           @updatedAt
   favorites         Favorite[]
   interviewRequests InterviewRequest[]
+  jobProposals      JobProposal[]
+}
+
+model JobProposal {
+  id                String             @id @default(uuid())
+  companyId         String
+  company           CompanyProfile     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  professions       String             // JSON array of string professions
+  locations         String             // JSON array of location objects [{ city, province, sigla }]
+  educationTitle    String             // "Nessuna preferenza", "LICENZA_MEDIA", "DIPLOMA", "LAUREA"
+  hasLicense        Boolean            @default(false)
+  hasCar            Boolean            @default(false)
+  minSalary         String?
+  maxSalary         String?
+  notes             String?
+  status            String             @default("ACTIVE") // "DRAFT" or "ACTIVE"
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  responses         ProposalResponse[]
+}
+
+model ProposalResponse {
+  id          String        @id @default(uuid())
+  proposalId  String
+  proposal    JobProposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  workerId    String
+  worker      WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  status      String        // "ACCEPTED" or "DECLINED"
+  createdAt   DateTime      @default(now())
+
+  @@unique([proposalId, workerId])
 }
 
 model Favorite {

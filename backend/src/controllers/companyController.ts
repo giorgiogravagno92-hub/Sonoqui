@@ -478,3 +478,180 @@ export const requestInterview = async (req: any, res: Response) => {
     res.status(500).json({ error: 'Error creating interview request' });
   }
 };
+
+export const updateCompanyProfile = async (req: any, res: Response) => {
+  try {
+    const {
+      companyType,
+      companyName,
+      address,
+      vatNumber,
+      firstName,
+      lastName,
+      residenzaCapCitta,
+      fiscalCode,
+      industry,
+      city,
+      contactPerson,
+      contactPhone
+    } = req.body;
+
+    const company = await prisma.companyProfile.update({
+      where: { userId: req.user.id },
+      data: {
+        companyType,
+        companyName,
+        address,
+        vatNumber,
+        firstName,
+        lastName,
+        residenzaCapCitta,
+        fiscalCode,
+        industry,
+        city,
+        contactPerson,
+        contactPhone
+      }
+    });
+
+    res.json(company);
+  } catch (error: any) {
+    console.error('Error updating company profile:', error);
+    res.status(500).json({ error: 'Error updating company profile' });
+  }
+};
+
+export const createProposal = async (req: any, res: Response) => {
+  try {
+    const company = await prisma.companyProfile.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company profile not found' });
+    }
+
+    const { professions, locations, educationTitle, hasLicense, hasCar, minSalary, maxSalary, notes, status } = req.body;
+
+    const profsArr: string[] = typeof professions === 'object' ? professions : JSON.parse(professions || '[]');
+    const locsArr: any[] = typeof locations === 'object' ? locations : JSON.parse(locations || '[]');
+    const proposalStatus = status === 'DRAFT' ? 'DRAFT' : 'ACTIVE';
+
+    const proposal = await prisma.jobProposal.create({
+      data: {
+        companyId: company.id,
+        professions: JSON.stringify(profsArr),
+        locations: JSON.stringify(locsArr),
+        educationTitle: educationTitle || 'Nessuna preferenza',
+        hasLicense: Boolean(hasLicense),
+        hasCar: Boolean(hasCar),
+        minSalary: minSalary || '',
+        maxSalary: maxSalary || '',
+        notes: notes || '',
+        status: proposalStatus
+      }
+    });
+
+    res.json(proposal);
+  } catch (error: any) {
+    console.error('Error creating proposal:', error);
+    res.status(500).json({ error: 'Error creating job proposal' });
+  }
+};
+
+export const getProposals = async (req: any, res: Response) => {
+  try {
+    const company = await prisma.companyProfile.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company profile not found' });
+    }
+
+    const proposals = await prisma.jobProposal.findMany({
+      where: { companyId: company.id },
+      include: {
+        company: true,
+        responses: {
+          include: {
+            worker: {
+              include: {
+                workExperiences: true,
+                user: {
+                  select: { email: true }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(proposals);
+  } catch (error: any) {
+    console.error('Error fetching proposals:', error);
+    res.status(500).json({ error: 'Error fetching job proposals' });
+  }
+};
+
+export const updateProposal = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { professions, locations, educationTitle, hasLicense, hasCar, minSalary, maxSalary, notes, status } = req.body;
+
+    const profsArr: string[] = typeof professions === 'object' ? professions : JSON.parse(professions || '[]');
+    const locsArr: any[] = typeof locations === 'object' ? locations : JSON.parse(locations || '[]');
+
+    const updateData: any = {
+      professions: JSON.stringify(profsArr),
+      locations: JSON.stringify(locsArr),
+      educationTitle: educationTitle || 'Nessuna preferenza',
+      hasLicense: Boolean(hasLicense),
+      hasCar: Boolean(hasCar),
+      minSalary: minSalary || '',
+      maxSalary: maxSalary || '',
+      notes: notes || ''
+    };
+
+    if (status) {
+      updateData.status = status;
+    }
+
+    const proposal = await prisma.jobProposal.update({
+      where: { id },
+      data: updateData,
+      include: {
+        company: true,
+        responses: {
+          include: {
+            worker: {
+              include: {
+                workExperiences: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    res.json(proposal);
+  } catch (error: any) {
+    console.error('Error updating proposal:', error);
+    res.status(500).json({ error: 'Error updating job proposal' });
+  }
+};
+
+export const deleteProposal = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    await prisma.jobProposal.delete({
+      where: { id }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting proposal:', error);
+    res.status(500).json({ error: 'Error deleting proposal' });
+  }
+};

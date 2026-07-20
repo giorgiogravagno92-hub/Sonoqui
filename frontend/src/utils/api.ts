@@ -385,7 +385,9 @@ export const api = {
     getInterviews: () => request('GET', '/workers/interviews'),
     respondToInterview: (id: string, status: string) => request('PUT', `/workers/interviews/${id}/respond`, { status }),
     uploadCv: (body: any) => request('POST', '/workers/upload-cv', body),
-    uploadPhoto: (body: any) => request('POST', '/workers/upload-photo', body)
+    uploadPhoto: (body: any) => request('POST', '/workers/upload-photo', body),
+    getProposals: () => request('GET', '/workers/proposals'),
+    respondToProposal: (id: string, status: string) => request('POST', `/workers/proposals/${id}/respond`, { status })
   },
   company: {
     getProfile: () => request('GET', '/companies/profile'),
@@ -397,7 +399,11 @@ export const api = {
     getWorkerDetails: (id: string) => request('GET', `/companies/workers/${id}`),
     toggleFavorite: (workerId: string) => request('POST', '/companies/favorites', { workerId }),
     getFavorites: () => request('GET', '/companies/favorites'),
-    requestInterview: (body: any) => request('POST', '/companies/interviews', body)
+    requestInterview: (body: any) => request('POST', '/companies/interviews', body),
+    createProposal: (body: any) => request('POST', '/companies/proposals', body),
+    getProposals: () => request('GET', '/companies/proposals'),
+    updateProposal: (id: string, body: any) => request('PUT', `/companies/proposals/${id}`, body),
+    deleteProposal: (id: string) => request('DELETE', `/companies/proposals/${id}`)
   },
   admin: {
     getStats: () => request('GET', '/admin/stats'),

@@ -8,7 +8,9 @@ import {
   getInterviewRequests,
   respondToInterviewRequest,
   uploadCv,
-  uploadPhoto
+  uploadPhoto,
+  getProposalsForWorker,
+  respondToJobProposal
 } from '../controllers/workerController';
 import { authenticateToken, requireRole } from '../middleware/auth';
 
@@ -26,5 +28,7 @@ router.get('/notifications', getNotifications as any);
 router.put('/notifications/:id/read', markNotificationRead as any);
 router.get('/interviews', requireRole(['WORKER']) as any, getInterviewRequests as any);
 router.put('/interviews/:id/respond', requireRole(['WORKER']) as any, respondToInterviewRequest as any);
+router.get('/proposals', requireRole(['WORKER']) as any, getProposalsForWorker as any);
+router.post('/proposals/:id/respond', requireRole(['WORKER']) as any, respondToJobProposal as any);
 
 export default router;

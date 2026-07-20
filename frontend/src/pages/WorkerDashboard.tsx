@@ -48,6 +48,7 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
   const [profile, setProfile] = useState<any>(null);
   const [interviews, setInterviews] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [companyJobProposals, setCompanyJobProposals] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications'>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -219,6 +220,11 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
 
       const notifs = await api.worker.getNotifications();
       setNotifications(notifs);
+
+      try {
+        const props = await api.worker.getProposals();
+        setCompanyJobProposals(props || []);
+      } catch (e) {}
     } catch (err) {
       console.error('Error fetching worker dashboard data:', err);
     }
@@ -2683,10 +2689,114 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
       {/* Notifications and Proposals Tab */}
       {activeTab === 'notifications' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Proposte di Lavoro Ricevute dalle Aziende */}
+          <div>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              💼 Proposte di Lavoro dalle Aziende
+            </h3>
+            {companyJobProposals.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', textAlign: 'center' }}>
+                Nessuna proposta di lavoro attiva corrispondente al tuo profilo al momento.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {companyJobProposals.map((prop: any) => {
+                  let profsList: string[] = [];
+                  try { profsList = JSON.parse(prop.professions || '[]'); } catch (e) {}
+
+                  let locsList: any[] = [];
+                  try { locsList = JSON.parse(prop.locations || '[]'); } catch (e) {}
+
+                  const userResponse = (prop.responses || [])[0]?.status;
+
+                  return (
+                    <div
+                      key={prop.id}
+                      className="glass-card"
+                      style={{
+                        padding: '16px',
+                        borderLeft: userResponse === 'ACCEPTED' ? '3px solid var(--accent-green)' : '3px solid var(--accent-blue)',
+                        background: 'rgba(255,255,255,0.02)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '0.95rem', color: '#fff' }}>
+                          🏢 {prop.company?.companyName || 'Azienda Riservata'}
+                        </strong>
+                        <span style={{ fontSize: '0.7rem', padding: '3px 8px', borderRadius: '12px', background: userResponse === 'ACCEPTED' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)', color: userResponse === 'ACCEPTED' ? 'var(--accent-green)' : 'var(--accent-blue)', fontWeight: 700 }}>
+                          {userResponse === 'ACCEPTED' ? '✅ CONTATTO DIRETTO ACCETTATO' : (userResponse === 'DECLINED' ? '❌ RIFIUTATO' : '📩 PROPOSTA ATTIVA')}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.8rem', color: 'var(--accent-blue)', fontWeight: 700, marginBottom: '4px' }}>
+                        Professioni cercate: {profsList.join(', ')}
+                      </div>
+
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                        📍 Sedi: {locsList.map(l => `${l.city || ''} (${l.sigla || l.province})`).join(' | ')}
+                      </div>
+
+                      {prop.notes && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px', fontStyle: 'italic' }}>
+                          "{prop.notes}"
+                        </p>
+                      )}
+
+                      {!userResponse ? (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-success"
+                            style={{ padding: '8px 14px', fontSize: '0.75rem', fontWeight: 700, flex: 1 }}
+                            onClick={async () => {
+                              try {
+                                await api.worker.respondToProposal(prop.id, 'ACCEPTED');
+                                alert("Hai accettato il contatto diretto! L'azienda ora può visualizzare i tuoi recapiti ed il CV completo.");
+                                const updatedProps = await api.worker.getProposals();
+                                setCompanyJobProposals(updatedProps || []);
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            ✅ Accetta Contatto Diretto
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            style={{ padding: '8px 14px', fontSize: '0.75rem', fontWeight: 600 }}
+                            onClick={async () => {
+                              try {
+                                await api.worker.respondToProposal(prop.id, 'DECLINED');
+                                const updatedProps = await api.worker.getProposals();
+                                setCompanyJobProposals(updatedProps || []);
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            ❌ Non Interessato
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.75rem', color: userResponse === 'ACCEPTED' ? 'var(--accent-green)' : 'var(--text-muted)', marginTop: '8px', fontWeight: 600 }}>
+                          {userResponse === 'ACCEPTED'
+                            ? "✅ Hai accettato di condividere i tuoi recapiti ed il CV completo con questa azienda."
+                            : "Hai declinato questa proposta."}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Proposte Iniziali Section */}
           <div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              ✉️ Proposte Iniziali Ricevute
+              ✉️ Altre Comunicazioni Aziendali
             </h3>
             {interviews.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', textAlign: 'center' }}>

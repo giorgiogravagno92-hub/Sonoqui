@@ -353,4 +353,135 @@ export const uploadPhoto = async (req: any, res: Response) => {
   }
 };
 
+export const getProposalsForWorker = async (req: any, res: Response) => {
+  try {
+    const worker = await prisma.workerProfile.findUnique({
+      where: { userId: req.user.id },
+      include: { proposalResponses: true }
+    });
+
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker profile not found' });
+    }
+
+    // Active proposals sent by companies
+    const activeProposals = await prisma.jobProposal.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        company: true,
+        responses: {
+          where: { workerId: worker.id }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Filter proposals matching candidate's profession / roles and location
+    const matchedProposals = activeProposals.filter(prop => {
+      let profsArr: string[] = [];
+      try { profsArr = JSON.parse(prop.professions || '[]'); } catch (e) {}
+
+      let locsArr: any[] = [];
+      try { locsArr = JSON.parse(prop.locations || '[]'); } catch (e) {}
+
+      // Profession match
+      let matchProf = false;
+      if (profsArr.length === 0) matchProf = true;
+      else {
+        const wProf = (worker.profession || '').toLowerCase();
+        let wRoles: string[] = [];
+        try { wRoles = JSON.parse(worker.availabilityRoles || '[]'); } catch (e) {}
+        matchProf = profsArr.some(p => {
+          const target = p.toLowerCase();
+          return wProf.includes(target) || wRoles.some(r => r.toLowerCase().includes(target));
+        });
+      }
+      if (!matchProf) return false;
+
+      // Location match
+      let matchLoc = false;
+      if (locsArr.length === 0) matchLoc = true;
+      else {
+        matchLoc = locsArr.some(loc => {
+          if (loc.province === 'Tutto il territorio nazionale' || loc.city === 'Tutto il territorio nazionale') return true;
+          const wCity = (worker.city || '').toLowerCase();
+          const wProv = (worker.province || '').toLowerCase();
+          const lCity = (loc.city || '').toLowerCase();
+          const lProv = (loc.province || '').toLowerCase();
+          return (lCity && wCity.includes(lCity)) || (lProv && (wProv.includes(lProv) || lProv.includes(wProv)));
+        });
+      }
+      if (!matchLoc) return false;
+
+      return true;
+    });
+
+    res.json(matchedProposals);
+  } catch (error: any) {
+    console.error('Error fetching proposals for worker:', error);
+    res.status(500).json({ error: 'Error fetching proposals for worker' });
+  }
+};
+
+export const respondToJobProposal = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params; // proposalId
+    const { status } = req.body; // "ACCEPTED" or "DECLINED"
+
+    if (!['ACCEPTED', 'DECLINED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid response status' });
+    }
+
+    const worker = await prisma.workerProfile.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker profile not found' });
+    }
+
+    const proposal = await prisma.jobProposal.findUnique({
+      where: { id },
+      include: { company: true }
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: 'Job proposal not found' });
+    }
+
+    // Upsert proposal response
+    const response = await prisma.proposalResponse.upsert({
+      where: {
+        proposalId_workerId: {
+          proposalId: id,
+          workerId: worker.id
+        }
+      },
+      update: { status },
+      create: {
+        proposalId: id,
+        workerId: worker.id,
+        status
+      }
+    });
+
+    if (status === 'ACCEPTED') {
+      // Create notification for company
+      await prisma.notification.create({
+        data: {
+          userId: proposal.company.userId,
+          title: 'Candidato Ha Accettato!',
+          message: `Il candidato ${worker.firstName} ${worker.lastName} (${worker.profession}) ha accettato la tua richiesta di ulteriori informazioni per la proposta di lavoro.`,
+          type: 'MESSAGE'
+        }
+      });
+    }
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Error responding to job proposal:', error);
+    res.status(500).json({ error: 'Error responding to job proposal' });
+  }
+};
+
 
