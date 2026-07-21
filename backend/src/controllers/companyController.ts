@@ -190,7 +190,16 @@ export const searchWorkers = async (req: any, res: Response) => {
 
         // 3. Education Match
         if (educationLevel) {
-          let hasEduLevel = worker.educationLevel === educationLevel;
+          const isLaureaLevel = (lvl: string) => {
+            return lvl === 'LAUREA' || lvl === 'LAUREA_TRIENNALE' || lvl === 'LAUREA_SPECIALISTICA' || lvl === 'LAUREA_MAGISTRALE';
+          };
+          
+          let hasEduLevel = false;
+          if (educationLevel === 'LAUREA') {
+            hasEduLevel = isLaureaLevel(worker.educationLevel);
+          } else {
+            hasEduLevel = worker.educationLevel === educationLevel;
+          }
           
           let preferredEducations: any[] = [];
           try {
@@ -198,7 +207,12 @@ export const searchWorkers = async (req: any, res: Response) => {
           } catch(e) {}
           
           if (preferredEducations.length > 0) {
-            hasEduLevel = hasEduLevel || preferredEducations.some((e: any) => e.level === educationLevel);
+            hasEduLevel = hasEduLevel || preferredEducations.some((e: any) => {
+              if (educationLevel === 'LAUREA') {
+                return isLaureaLevel(e.level);
+              }
+              return e.level === educationLevel;
+            });
           }
           if (!hasEduLevel) {
             return false;

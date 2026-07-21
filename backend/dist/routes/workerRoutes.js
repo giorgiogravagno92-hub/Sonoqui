@@ -15,4 +15,6 @@ router.get('/notifications', workerController_1.getNotifications);
 router.put('/notifications/:id/read', workerController_1.markNotificationRead);
 router.get('/interviews', (0, auth_1.requireRole)(['WORKER']), workerController_1.getInterviewRequests);
 router.put('/interviews/:id/respond', (0, auth_1.requireRole)(['WORKER']), workerController_1.respondToInterviewRequest);
+router.get('/proposals', (0, auth_1.requireRole)(['WORKER']), workerController_1.getProposalsForWorker);
+router.post('/proposals/:id/respond', (0, auth_1.requireRole)(['WORKER']), workerController_1.respondToJobProposal);
 exports.default = router;

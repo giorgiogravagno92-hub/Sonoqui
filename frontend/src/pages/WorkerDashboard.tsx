@@ -45,6 +45,7 @@ const formatCurrencyInput = (value: string) => {
 };
 
 export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile }) => {
+  const isLaurea = (level: string) => level === 'LAUREA' || level === 'LAUREA_TRIENNALE' || level === 'LAUREA_SPECIALISTICA' || level === 'LAUREA_MAGISTRALE';
   const [profile, setProfile] = useState<any>(null);
   const [interviews, setInterviews] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -118,6 +119,9 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
   const [communicativeSkills, setCommunicativeSkills] = useState<Record<string, string>>({});
   const [commSkillsOpen, setCommSkillsOpen] = useState(false);
   const [customLanguageInput, setCustomLanguageInput] = useState('');
+
+  const [noEducationEdit, setNoEducationEdit] = useState(false);
+  const [noExperienceEdit, setNoExperienceEdit] = useState(false);
 
   // Multiple educations states
   const [educationTitles, setEducationTitles] = useState<any[]>([]);
@@ -197,6 +201,11 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
       try { parsedSkills = JSON.parse(prof.skills || '{}'); } catch(e){}
       let parsedEdu = [];
       try { parsedEdu = JSON.parse(prof.educationTitles || '[]'); } catch(e){}
+
+      const hasExp = prof.workExperiences && prof.workExperiences.length > 0;
+      setNoExperienceEdit(!hasExp);
+      const hasEdu = parsedEdu.length > 0;
+      setNoEducationEdit(!hasEdu && prof.educationLevel === 'NESSUNO');
       
       const loadedStateObj = {
         formData: {
@@ -480,11 +489,41 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validazione campi obbligatori
+    if (!formData.firstName?.trim() || !formData.lastName?.trim()) {
+      alert('Nome e Cognome sono obbligatori.');
+      return;
+    }
+    if (!formData.profession) {
+      alert('La professione è obbligatoria.');
+      return;
+    }
+    if (!formData.city?.trim() || !formData.province) {
+      alert('Città e Provincia sono obbligatorie.');
+      return;
+    }
+
+    // Controlla Titoli di Studio
+    const hasEdu = educationTitles.length > 0 || noEducationEdit || formData.educationLevel === 'NESSUNO';
+    if (!hasEdu) {
+      alert('Inserisci almeno un titolo di studio oppure seleziona "Nessun titolo di studio".');
+      return;
+    }
+
+    // Controlla Esperienze lavorative
+    const hasExp = formData.workExperiences && formData.workExperiences.length > 0;
+    if (!hasExp && !noExperienceEdit) {
+      alert('Inserisci almeno un\'esperienza lavorativa oppure seleziona "Nessuna esperienza lavorativa".');
+      return;
+    }
+
     try {
       const skillsStr = JSON.stringify({ computerSkills, organizationalSkills, languageSkills, communicativeSkills });
-      const educationsStr = JSON.stringify(educationTitles);
+      const educationsStr = noEducationEdit ? '[]' : JSON.stringify(educationTitles);
       const updated = await api.worker.updateProfile({
         ...formData,
+        educationLevel: noEducationEdit ? 'NESSUNO' : (formData.educationLevel === 'NESSUNO' ? 'DIPLOMA' : formData.educationLevel),
         skills: skillsStr,
         educationTitles: educationsStr
       });
@@ -805,161 +844,174 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
 
   if (!profile) return <div style={{ padding: '24px', textAlign: 'center' }}>Caricamento dashboard in corso...</div>;
 
+  const isProfileIncomplete = profile && (!profile.city || !profile.province || !profile.profession);
+  const showEditForm = isEditing || isProfileIncomplete;
+
   return (
     <div style={{ padding: '10px 0' }}>
-      {/* Riquadro Unico Ricezione Proposte */}
-      <div className="glass-card" style={{ marginBottom: '20px', padding: '20px', border: '1px solid var(--border-glass)' }}>
-        <h4 style={{ marginBottom: '14px', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
-          STATO RICEZIONE PROPOSTE
-        </h4>
-        
-        {/* Toggle buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-          <button 
-            type="button"
-            className="btn"
-            onClick={() => openAvailabilityModal('DISPONIBILE_PROPOSTE')}
-            style={{ 
-              padding: '12px', 
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              background: profile.availabilityStatus !== 'NON_DISPONIBILE' ? 'var(--accent-green)' : 'transparent',
-              color: profile.availabilityStatus !== 'NON_DISPONIBILE' ? '#fff' : 'var(--text-muted)',
-              border: '1px solid ' + (profile.availabilityStatus !== 'NON_DISPONIBILE' ? 'var(--accent-green)' : 'rgba(255,255,255,0.1)'),
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            🟢 Attiva Ricezione Proposte
-          </button>
-
-          <button 
-            type="button"
-            className="btn"
-            onClick={handleDeactivateAvailability}
-            style={{ 
-              padding: '12px', 
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              background: profile.availabilityStatus === 'NON_DISPONIBILE' ? 'var(--accent-red)' : 'transparent',
-              color: profile.availabilityStatus === 'NON_DISPONIBILE' ? '#fff' : 'var(--text-muted)',
-              border: '1px solid ' + (profile.availabilityStatus === 'NON_DISPONIBILE' ? 'var(--accent-red)' : 'rgba(255,255,255,0.1)'),
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            🔴 Non Disponibile
-          </button>
+      {isProfileIncomplete && (
+        <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid var(--accent-blue)', color: 'var(--text-primary)', padding: '16px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.95rem', lineHeight: '1.4' }}>
+          👋 <strong>Benvenuto su Sono Qui!</strong><br />
+          Per favore, completa la compilazione del tuo curriculum inserendo i dati minimi obbligatori (Professione, Città, Provincia, Titoli di studio ed Esperienze pregresse) per rendere attivo il tuo profilo e poter utilizzare tutte le funzionalità.
         </div>
+      )}
+      {/* Riquadro Unico Ricezione Proposte */}
+      {!isProfileIncomplete && (
+        <div className="glass-card" style={{ marginBottom: '20px', padding: '20px', border: '1px solid var(--border-glass)' }}>
+          <h4 style={{ marginBottom: '14px', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.5px' }}>
+            STATO RICEZIONE PROPOSTE
+          </h4>
+          
+          {/* Toggle buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+            <button 
+              type="button"
+              className="btn"
+              onClick={() => openAvailabilityModal('DISPONIBILE_PROPOSTE')}
+              style={{ 
+                padding: '12px', 
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                background: profile.availabilityStatus !== 'NON_DISPONIBILE' ? 'var(--accent-green)' : 'transparent',
+                color: profile.availabilityStatus !== 'NON_DISPONIBILE' ? '#fff' : 'var(--text-muted)',
+                border: '1px solid ' + (profile.availabilityStatus !== 'NON_DISPONIBILE' ? 'var(--accent-green)' : 'rgba(255,255,255,0.1)'),
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              🟢 Attiva Ricezione Proposte
+            </button>
 
-        {/* Status Details / Summary */}
-        {profile.availabilityStatus !== 'NON_DISPONIBILE' ? (
-          <div 
-            onClick={() => openAvailabilityModal(profile.availabilityStatus)}
-            style={{ 
-              background: 'rgba(255,255,255,0.02)', 
-              border: '1px dashed rgba(16, 185, 129, 0.2)', 
-              padding: '16px', 
-              borderRadius: '10px', 
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            title="Clicca per modificare i requisiti di disponibilità"
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <strong style={{ color: 'var(--accent-green)', fontSize: '0.9rem' }}>📋 Riepilogo Ricerca Lavoro</strong>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>✏️ Modifica</span>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <strong>Regioni e Province attive:</strong>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+            <button 
+              type="button"
+              className="btn"
+              onClick={handleDeactivateAvailability}
+              style={{ 
+                padding: '12px', 
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                background: profile.availabilityStatus === 'NON_DISPONIBILE' ? 'var(--accent-red)' : 'transparent',
+                color: profile.availabilityStatus === 'NON_DISPONIBILE' ? '#fff' : 'var(--text-muted)',
+                border: '1px solid ' + (profile.availabilityStatus === 'NON_DISPONIBILE' ? 'var(--accent-red)' : 'rgba(255,255,255,0.1)'),
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              🔴 Non Disponibile
+            </button>
+          </div>
+
+          {/* Status Details / Summary */}
+          {profile.availabilityStatus !== 'NON_DISPONIBILE' ? (
+            <div 
+              onClick={() => openAvailabilityModal(profile.availabilityStatus)}
+              style={{ 
+                background: 'rgba(255,255,255,0.02)', 
+                border: '1px dashed rgba(16, 185, 129, 0.2)', 
+                padding: '16px', 
+                borderRadius: '10px', 
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="Clicca per modificare i requisiti di disponibilità"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <strong style={{ color: 'var(--accent-green)', fontSize: '0.9rem' }}>📋 Riepilogo Ricerca Lavoro</strong>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>✏️ Modifica</span>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div>
+                  <strong>Regioni e Province attive:</strong>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    {(() => {
+                      let regions = [];
+                      try {
+                        regions = JSON.parse(profile.availabilityRegionsProvinces || '[]');
+                      } catch(e) {}
+                      if (regions.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Nessuna specificata</span>;
+                      return regions.map((r: any) => (
+                        <span key={r.region} className="tag" style={{ borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', fontSize: '0.75rem', padding: '3px 8px' }}>
+                          📍 {r.region}: {r.provinces && r.provinces.length > 0 ? r.provinces.map((p: any) => `${p.name} (${p.maxDistance}km)`).join(', ') : 'Tutte le province'}
+                        </span>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                <div>
+                  <strong>Ruoli attivi:</strong>{' '}
                   {(() => {
-                    let regions = [];
+                    let roles = [];
                     try {
-                      regions = JSON.parse(profile.availabilityRegionsProvinces || '[]');
+                      roles = JSON.parse(profile.availabilityRoles || '[]');
                     } catch(e) {}
-                    if (regions.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Nessuna specificata</span>;
-                    return regions.map((r: any) => (
-                      <span key={r.region} className="tag" style={{ borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', fontSize: '0.75rem', padding: '3px 8px' }}>
-                        📍 {r.region}: {r.provinces && r.provinces.length > 0 ? r.provinces.map((p: any) => `${p.name} (${p.maxDistance}km)`).join(', ') : 'Tutte le province'}
-                      </span>
+                    if (roles.length === 0) {
+                      return profile.profession ? <span className="tag" style={{ borderColor: 'rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.05)', color: 'var(--accent-purple)', fontSize: '0.75rem', padding: '2px 6px', display: 'inline-block' }}>{profile.profession}</span> : <span style={{ color: 'var(--text-muted)' }}>Nessuno</span>;
+                    }
+                    return roles.map((role: string) => (
+                      <span key={role} className="tag" style={{ borderColor: 'rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.05)', color: 'var(--accent-purple)', marginRight: '4px', fontSize: '0.75rem', padding: '2px 6px', display: 'inline-block' }}>{role}</span>
                     ));
                   })()}
                 </div>
-              </div>
 
-              <div>
-                <strong>Ruoli attivi:</strong>{' '}
-                {(() => {
-                  let roles = [];
-                  try {
-                    roles = JSON.parse(profile.availabilityRoles || '[]');
-                  } catch(e) {}
-                  if (roles.length === 0) {
-                    return profile.profession ? <span className="tag" style={{ borderColor: 'rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.05)', color: 'var(--accent-purple)', fontSize: '0.75rem', padding: '2px 6px', display: 'inline-block' }}>{profile.profession}</span> : <span style={{ color: 'var(--text-muted)' }}>Nessuno</span>;
-                  }
-                  return roles.map((role: string) => (
-                    <span key={role} className="tag" style={{ borderColor: 'rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.05)', color: 'var(--accent-purple)', marginRight: '4px', fontSize: '0.75rem', padding: '2px 6px', display: 'inline-block' }}>{role}</span>
-                  ));
-                })()}
-              </div>
-
-              <div>
-                <strong>Contratti desiderati:</strong>{' '}
-                {(() => {
-                  let contracts = [];
-                  try {
-                    contracts = JSON.parse(profile.availabilityContracts || '[]');
-                  } catch(e) {}
-                  if (contracts.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Nessuna preferenza</span>;
-                  return contracts.join(', ');
-                })()}
-              </div>
-
-              {profile.availabilityNotes && (
                 <div>
-                  <strong>Note:</strong> <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>"{profile.availabilityNotes}"</span>
+                  <strong>Contratti desiderati:</strong>{' '}
+                  {(() => {
+                    let contracts = [];
+                    try {
+                      contracts = JSON.parse(profile.availabilityContracts || '[]');
+                    } catch(e) {}
+                    if (contracts.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Nessuna preferenza</span>;
+                    return contracts.join(', ');
+                  })()}
                 </div>
-              )}
+
+                {profile.availabilityNotes && (
+                  <div>
+                    <strong>Note:</strong> <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>"{profile.availabilityNotes}"</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>
-            ℹ️ Il tuo profilo non è attualmente ricercabile dalle aziende. Clicca su "Attiva Ricezione Proposte" per impostare i requisiti ed essere visibile.
-          </div>
-        )}
-      </div>
+          ) : (
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>
+              ℹ️ Il tuo profilo non è attualmente ricercabile dalle aziende. Clicca su "Attiva Ricezione Proposte" per impostare i requisiti ed essere visibile.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-glass)', marginBottom: '20px', paddingBottom: '8px' }}>
-        <button 
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'profile' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
-          onClick={() => setActiveTab('profile')}
-        >
-          📄 Profilo CV
-        </button>
-        <button 
-          style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'notifications' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'notifications' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer', position: 'relative' }}
-          onClick={() => setActiveTab('notifications')}
-        >
-          🔔 Notifiche
-          {interviews.filter(i => i.status === 'PENDING').length > 0 && (
-            <span style={{ position: 'absolute', top: '0', right: '10px', background: 'var(--accent-red)', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: '0.65rem' }}>
-              {interviews.filter(i => i.status === 'PENDING').length}
-            </span>
-          )}
-        </button>
-      </div>
+      {!isProfileIncomplete && (
+        <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-glass)', marginBottom: '20px', paddingBottom: '8px' }}>
+          <button 
+            style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'profile' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }}
+            onClick={() => setActiveTab('profile')}
+          >
+            📄 Profilo CV
+          </button>
+          <button 
+            style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: activeTab === 'notifications' ? '2px solid var(--accent-blue)' : 'none', color: activeTab === 'notifications' ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600, cursor: 'pointer', position: 'relative' }}
+            onClick={() => setActiveTab('notifications')}
+          >
+            🔔 Notifiche
+            {interviews.filter(i => i.status === 'PENDING').length > 0 && (
+              <span style={{ position: 'absolute', top: '0', right: '10px', background: 'var(--accent-red)', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: '0.65rem' }}>
+                {interviews.filter(i => i.status === 'PENDING').length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
         <div>
-          {isEditing ? (
+          {showEditForm ? (
             <form onSubmit={handleSaveProfile} className="glass-card" style={{ padding: '16px' }}>
               <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Modifica Curriculum Vitae</h3>
 
@@ -1367,9 +1419,28 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
 
               {/* Sezione Titoli di Studio in Modifica */}
               <div style={{ border: '1px solid var(--border-glass)', padding: '16px', borderRadius: '10px', marginBottom: '20px', background: 'rgba(255,255,255,0.02)' }}>
-                <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  🎓 Titoli di Studio Conseguiti (uno o più)
-                </h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    🎓 Titoli di Studio Conseguiti *
+                  </h4>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={noEducationEdit} 
+                      onChange={(e) => {
+                        setNoEducationEdit(e.target.checked);
+                        if (e.target.checked) {
+                          setEducationTitles([]);
+                          setFormData({ ...formData, educationLevel: 'NESSUNO' });
+                        }
+                      }} 
+                    />
+                    Nessun titolo di studio
+                  </label>
+                </div>
+
+                {!noEducationEdit && (
+                  <>
                 {/* Lista titoli aggiunti */}
                 {/* Lista titoli aggiunti */}
                 {(() => {
@@ -1464,7 +1535,9 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                       >
                         <option value="LICENZA_MEDIA">Licenza Media</option>
                         <option value="DIPLOMA">Diploma</option>
-                        <option value="LAUREA">Laurea</option>
+                        <option value="LAUREA_TRIENNALE">Laurea triennale</option>
+                        <option value="LAUREA_SPECIALISTICA">Laurea specialistica</option>
+                        <option value="LAUREA_MAGISTRALE">Laurea Magistrale</option>
                         <option value="MASTER">Master</option>
                       </select>
                     </div>
@@ -1511,9 +1584,9 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                       </div>
                     )}
 
-                    {newEduLevel === 'LAUREA' && (
+                    {isLaurea(newEduLevel) && (
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Laurea</label>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Corso di Laurea</label>
                         <select 
                           className="form-control" 
                           value={newEduField} 
@@ -1583,7 +1656,7 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                   )}
 
                   {/* Campi condizionali per Laurea */}
-                  {newEduLevel === 'LAUREA' && (
+                  {isLaurea(newEduLevel) && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', marginBottom: '10px' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>Conseguito presso</label>
@@ -1668,17 +1741,17 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                       <button
                         type="button"
                         onClick={() => {
-                          if ((newEduLevel === 'DIPLOMA' || newEduLevel === 'LAUREA' || newEduLevel === 'MASTER') && !newEduField) {
+                          if ((newEduLevel === 'DIPLOMA' || isLaurea(newEduLevel) || newEduLevel === 'MASTER') && !newEduField) {
                             alert('Inserisci o seleziona il titolo specifico.');
                             return;
                           }
                           const newItem = {
                             level: newEduLevel,
                             field: newEduLevel === 'LICENZA_MEDIA' ? '' : newEduField,
-                            conseguitoPresso: (newEduLevel === 'LAUREA' || newEduLevel === 'MASTER') ? newEduConseguitoPresso : undefined,
+                            conseguitoPresso: (isLaurea(newEduLevel) || newEduLevel === 'MASTER') ? newEduConseguitoPresso : undefined,
                             inData: (newEduLevel !== 'LICENZA_MEDIA') ? newEduInData : undefined,
-                            votazione: (newEduLevel === 'DIPLOMA' || newEduLevel === 'LAUREA') ? newEduVotazione : undefined,
-                            lode: (newEduLevel === 'DIPLOMA' || newEduLevel === 'LAUREA') ? newEduLode : undefined
+                            votazione: (newEduLevel === 'DIPLOMA' || isLaurea(newEduLevel)) ? newEduVotazione : undefined,
+                            lode: (newEduLevel === 'DIPLOMA' || isLaurea(newEduLevel)) ? newEduLode : undefined
                           };
                           const list = [...educationTitles];
                           list[editingEduIndex] = newItem;
@@ -1721,17 +1794,17 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                     <button
                       type="button"
                       onClick={() => {
-                        if ((newEduLevel === 'DIPLOMA' || newEduLevel === 'LAUREA' || newEduLevel === 'MASTER') && !newEduField) {
+                        if ((newEduLevel === 'DIPLOMA' || isLaurea(newEduLevel) || newEduLevel === 'MASTER') && !newEduField) {
                           alert('Inserisci o seleziona il titolo specifico.');
                           return;
                         }
                         const newItem = {
                           level: newEduLevel,
                           field: newEduLevel === 'LICENZA_MEDIA' ? '' : newEduField,
-                          conseguitoPresso: (newEduLevel === 'LAUREA' || newEduLevel === 'MASTER') ? newEduConseguitoPresso : undefined,
+                          conseguitoPresso: (isLaurea(newEduLevel) || newEduLevel === 'MASTER') ? newEduConseguitoPresso : undefined,
                           inData: (newEduLevel !== 'LICENZA_MEDIA') ? newEduInData : undefined,
-                          votazione: (newEduLevel === 'DIPLOMA' || newEduLevel === 'LAUREA') ? newEduVotazione : undefined,
-                          lode: (newEduLevel === 'DIPLOMA' || newEduLevel === 'LAUREA') ? newEduLode : undefined
+                          votazione: (newEduLevel === 'DIPLOMA' || isLaurea(newEduLevel)) ? newEduVotazione : undefined,
+                          lode: (newEduLevel === 'DIPLOMA' || isLaurea(newEduLevel)) ? newEduLode : undefined
                         };
                         setEducationTitles([...educationTitles, newItem]);
                         setNewEduLevel('DIPLOMA');
@@ -1749,6 +1822,8 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                     </button>
                   )}
                 </div>
+                </>
+                )}
               </div>
 
               <div className="form-group">
@@ -1764,9 +1839,27 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
 
               {/* Sezione Esperienze Lavorative in Modifica */}
               <div style={{ border: '1px solid var(--border-glass)', padding: '16px', borderRadius: '10px', marginBottom: '20px', background: 'rgba(255,255,255,0.02)' }}>
-                <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  💼 Esperienze lavorative
-                </h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    💼 Esperienze lavorative *
+                  </h4>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={noExperienceEdit} 
+                      onChange={(e) => {
+                        setNoExperienceEdit(e.target.checked);
+                        if (e.target.checked) {
+                          setFormData({ ...formData, workExperiences: [] });
+                        }
+                      }} 
+                    />
+                    Nessuna esperienza lavorativa
+                  </label>
+                </div>
+
+                {!noExperienceEdit && (
+                  <>
 
                 {/* Lista esperienze aggiunte */}
                 {(formData.workExperiences || []).length > 0 ? (
@@ -2208,6 +2301,8 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                     </div>
                   )}
                 </div>
+                </>
+                )}
               </div>
 
               {/* PDF & Video Upload Simulator */}
@@ -2303,22 +2398,26 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Salva CV</button>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  style={{ flex: 1 }} 
-                  onClick={() => {
-                    if (isDirty) {
-                      const confirm = window.confirm("Hai delle modifiche non salvate sul curriculum. Sicuro di voler annullare?");
-                      if (!confirm) return;
-                    }
-                    setIsEditing(false);
-                    fetchData();
-                  }}
-                >
-                  Annulla
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                  {isProfileIncomplete ? 'Salva e completa registrazione' : 'Salva CV'}
                 </button>
+                {!isProfileIncomplete && (
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1 }} 
+                    onClick={() => {
+                      if (isDirty) {
+                        const confirm = window.confirm("Hai delle modifiche non salvate sul curriculum. Sicuro di voler annullare?");
+                        if (!confirm) return;
+                      }
+                      setIsEditing(false);
+                      fetchData();
+                    }}
+                  >
+                    Annulla
+                  </button>
+                )}
               </div>
             </form>
           ) : (
@@ -2395,7 +2494,10 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                         return <span style={{ marginLeft: '6px' }}>Nessun Titolo</span>;
                       }
                       const label = profile.educationLevel === 'LICENZA_MEDIA' ? 'Licenza Media' : 
-                                    profile.educationLevel === 'DIPLOMA' ? 'Diploma' : 'Laurea';
+                                    profile.educationLevel === 'DIPLOMA' ? 'Diploma' : 
+                                    profile.educationLevel === 'LAUREA_TRIENNALE' ? 'Laurea triennale' : 
+                                    profile.educationLevel === 'LAUREA_SPECIALISTICA' ? 'Laurea specialistica' : 
+                                    profile.educationLevel === 'LAUREA_MAGISTRALE' ? 'Laurea Magistrale' : 'Laurea';
                       return <span style={{ marginLeft: '6px' }}>{label} {profile.educationField ? `- ${profile.educationField}` : ''}</span>;
                     }
                     return (
@@ -2403,7 +2505,10 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                         {edus.map((edu: any, i: number) => {
                           const label = edu.level === 'LICENZA_MEDIA' ? 'Licenza Media' : 
                                         edu.level === 'DIPLOMA' ? 'Diploma' : 
-                                        edu.level === 'LAUREA' ? 'Laurea' : 
+                                        edu.level === 'LAUREA' ? 'Laurea triennale' : 
+                                        edu.level === 'LAUREA_TRIENNALE' ? 'Laurea triennale' : 
+                                        edu.level === 'LAUREA_SPECIALISTICA' ? 'Laurea specialistica' : 
+                                        edu.level === 'LAUREA_MAGISTRALE' ? 'Laurea Magistrale' : 
                                         edu.level === 'MASTER' ? 'Master' : edu.level;
                           
                           let details = '';
@@ -2411,7 +2516,7 @@ export const WorkerDashboard: React.FC<WorkerDashboardProps> = ({ onNotifyMobile
                             const dateStr = edu.inData ? ` (Conseguito in data: ${edu.inData})` : '';
                             const gradeStr = edu.votazione ? `, Votazione: ${edu.votazione}` : '';
                             details = `${edu.field || ''}${dateStr}${gradeStr}`;
-                          } else if (edu.level === 'LAUREA') {
+                          } else if (isLaurea(edu.level)) {
                             const uniStr = edu.conseguitoPresso ? ` presso ${edu.conseguitoPresso}` : '';
                             const dateStr = edu.inData ? ` in data: ${edu.inData}` : '';
                             const gradeStr = edu.votazione ? `, Votazione: ${edu.votazione}` : '';

@@ -265,7 +265,8 @@ a:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
   transition: .4s;
   border-radius: 34px;
 }
@@ -274,14 +275,15 @@ a:hover {
   content: "";
   height: 18px;
   width: 18px;
-  left: 4px;
-  bottom: 4px;
+  left: 2px;
+  bottom: 2px;
   background-color: white;
   transition: .4s;
   border-radius: 50%;
 }
 input:checked + .slider {
   background-image: var(--grad-green);
+  border-color: var(--accent-green);
 }
 input:checked + .slider:before {
   transform: translateX(24px);

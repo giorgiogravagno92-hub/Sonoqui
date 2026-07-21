@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requestInterview = exports.getFavorites = exports.toggleFavorite = exports.getWorkerDetails = exports.updateProfile = exports.getProfile = exports.searchWorkers = void 0;
+exports.deleteProposal = exports.updateProposal = exports.getProposals = exports.createProposal = exports.updateCompanyProfile = exports.requestInterview = exports.getFavorites = exports.toggleFavorite = exports.getWorkerDetails = exports.updateProfile = exports.getProfile = exports.searchWorkers = void 0;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 const searchWorkers = async (req, res) => {
@@ -161,14 +161,28 @@ const searchWorkers = async (req, res) => {
                 }
                 // 3. Education Match
                 if (educationLevel) {
-                    let hasEduLevel = worker.educationLevel === educationLevel;
+                    const isLaureaLevel = (lvl) => {
+                        return lvl === 'LAUREA' || lvl === 'LAUREA_TRIENNALE' || lvl === 'LAUREA_SPECIALISTICA' || lvl === 'LAUREA_MAGISTRALE';
+                    };
+                    let hasEduLevel = false;
+                    if (educationLevel === 'LAUREA') {
+                        hasEduLevel = isLaureaLevel(worker.educationLevel);
+                    }
+                    else {
+                        hasEduLevel = worker.educationLevel === educationLevel;
+                    }
                     let preferredEducations = [];
                     try {
                         preferredEducations = JSON.parse(worker.educationTitles || '[]');
                     }
                     catch (e) { }
                     if (preferredEducations.length > 0) {
-                        hasEduLevel = hasEduLevel || preferredEducations.some((e) => e.level === educationLevel);
+                        hasEduLevel = hasEduLevel || preferredEducations.some((e) => {
+                            if (educationLevel === 'LAUREA') {
+                                return isLaureaLevel(e.level);
+                            }
+                            return e.level === educationLevel;
+                        });
                     }
                     if (!hasEduLevel) {
                         return false;
@@ -413,3 +427,157 @@ const requestInterview = async (req, res) => {
     }
 };
 exports.requestInterview = requestInterview;
+const updateCompanyProfile = async (req, res) => {
+    try {
+        const { companyType, companyName, address, vatNumber, firstName, lastName, residenzaCapCitta, fiscalCode, industry, city, contactPerson, contactPhone } = req.body;
+        const company = await prisma.companyProfile.update({
+            where: { userId: req.user.id },
+            data: {
+                companyType,
+                companyName,
+                address,
+                vatNumber,
+                firstName,
+                lastName,
+                residenzaCapCitta,
+                fiscalCode,
+                industry,
+                city,
+                contactPerson,
+                contactPhone
+            }
+        });
+        res.json(company);
+    }
+    catch (error) {
+        console.error('Error updating company profile:', error);
+        res.status(500).json({ error: 'Error updating company profile' });
+    }
+};
+exports.updateCompanyProfile = updateCompanyProfile;
+const createProposal = async (req, res) => {
+    try {
+        const company = await prisma.companyProfile.findUnique({
+            where: { userId: req.user.id }
+        });
+        if (!company) {
+            return res.status(404).json({ error: 'Company profile not found' });
+        }
+        const { professions, locations, educationTitle, hasLicense, hasCar, minSalary, maxSalary, notes, status } = req.body;
+        const profsArr = typeof professions === 'object' ? professions : JSON.parse(professions || '[]');
+        const locsArr = typeof locations === 'object' ? locations : JSON.parse(locations || '[]');
+        const proposalStatus = status === 'DRAFT' ? 'DRAFT' : 'ACTIVE';
+        const proposal = await prisma.jobProposal.create({
+            data: {
+                companyId: company.id,
+                professions: JSON.stringify(profsArr),
+                locations: JSON.stringify(locsArr),
+                educationTitle: educationTitle || 'Nessuna preferenza',
+                hasLicense: Boolean(hasLicense),
+                hasCar: Boolean(hasCar),
+                minSalary: minSalary || '',
+                maxSalary: maxSalary || '',
+                notes: notes || '',
+                status: proposalStatus
+            }
+        });
+        res.json(proposal);
+    }
+    catch (error) {
+        console.error('Error creating proposal:', error);
+        res.status(500).json({ error: 'Error creating job proposal' });
+    }
+};
+exports.createProposal = createProposal;
+const getProposals = async (req, res) => {
+    try {
+        const company = await prisma.companyProfile.findUnique({
+            where: { userId: req.user.id }
+        });
+        if (!company) {
+            return res.status(404).json({ error: 'Company profile not found' });
+        }
+        const proposals = await prisma.jobProposal.findMany({
+            where: { companyId: company.id },
+            include: {
+                company: true,
+                responses: {
+                    include: {
+                        worker: {
+                            include: {
+                                workExperiences: true,
+                                user: {
+                                    select: { email: true }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(proposals);
+    }
+    catch (error) {
+        console.error('Error fetching proposals:', error);
+        res.status(500).json({ error: 'Error fetching job proposals' });
+    }
+};
+exports.getProposals = getProposals;
+const updateProposal = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { professions, locations, educationTitle, hasLicense, hasCar, minSalary, maxSalary, notes, status } = req.body;
+        const profsArr = typeof professions === 'object' ? professions : JSON.parse(professions || '[]');
+        const locsArr = typeof locations === 'object' ? locations : JSON.parse(locations || '[]');
+        const updateData = {
+            professions: JSON.stringify(profsArr),
+            locations: JSON.stringify(locsArr),
+            educationTitle: educationTitle || 'Nessuna preferenza',
+            hasLicense: Boolean(hasLicense),
+            hasCar: Boolean(hasCar),
+            minSalary: minSalary || '',
+            maxSalary: maxSalary || '',
+            notes: notes || ''
+        };
+        if (status) {
+            updateData.status = status;
+        }
+        const proposal = await prisma.jobProposal.update({
+            where: { id },
+            data: updateData,
+            include: {
+                company: true,
+                responses: {
+                    include: {
+                        worker: {
+                            include: {
+                                workExperiences: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        res.json(proposal);
+    }
+    catch (error) {
+        console.error('Error updating proposal:', error);
+        res.status(500).json({ error: 'Error updating job proposal' });
+    }
+};
+exports.updateProposal = updateProposal;
+const deleteProposal = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await prisma.jobProposal.delete({
+            where: { id }
+        });
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Error deleting proposal:', error);
+        res.status(500).json({ error: 'Error deleting proposal' });
+    }
+};
+exports.deleteProposal = deleteProposal;

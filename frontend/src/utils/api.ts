@@ -13,119 +13,7 @@ const setMockData = (key: string, value: any) => {
 // Initialize mock database if empty
 if (!localStorage.getItem('sono_qui_mock_initialized_v2')) {
   localStorage.removeItem('sono_qui_mock_workers');
-  setMockData('workers', [
-    {
-      id: 'w1',
-      firstName: 'Mario',
-      lastName: 'Rossi',
-      profession: 'Elettricista',
-      city: 'Roma',
-      province: 'RM',
-      region: 'Lazio',
-      educationLevel: 'DIPLOMA',
-      educationField: 'Istituto Tecnico Elettronico',
-      skills: 'Domotica, Cablaggio, Quadri Elettrici, Ricerca Guasti, Certificazioni di Conformità',
-      certifications: 'Abilitazione PES/PAV, Certificazione FGAS',
-      hasLicense: true,
-      hasCar: true,
-      availabilityStatus: 'DISPONIBILE_SUBITO',
-      maxDistanceKm: 40,
-      desiredContract: 'TEMPO_INDETERMINATO',
-      desiredSalary: '€1.800 - €2.200 netti/mese',
-      photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=60',
-      workExperiences: [
-        {
-          id: 'exp1-1',
-          companyName: 'Elettra s.r.l.',
-          role: 'Elettricista Impiantista',
-          startDate: '2018-05',
-          endDate: '2022-12',
-          description: 'Cablaggio quadri elettrici industriali e collaudo impianti civili.',
-          city: 'Roma'
-        },
-        {
-          id: 'exp1-2',
-          companyName: 'Tech Volt S.p.A.',
-          role: 'Capo Squadra Elettricisti',
-          startDate: '2023-01',
-          endDate: '2026-06',
-          description: 'Gestione cantiere, direzione di una squadra di 5 persone e coordinamento manutenzioni straordinarie.',
-          city: 'Roma'
-        }
-      ]
-    },
-    {
-      id: 'w2',
-      firstName: 'Luigi',
-      lastName: 'Verdi',
-      profession: 'Sviluppatore Web',
-      city: 'Milano',
-      province: 'MI',
-      region: 'Lombardia',
-      educationLevel: 'LAUREA',
-      educationField: 'Ingegneria Informatica',
-      skills: 'JavaScript, TypeScript, React, HTML5, CSS3, Vite, Git, Tailwind CSS',
-      certifications: 'React Developer Certification (Meta)',
-      hasLicense: true,
-      hasCar: false,
-      availabilityStatus: 'VALUTO_OFFERTE',
-      maxDistanceKm: 30,
-      desiredContract: 'TEMPO_INDETERMINATO',
-      desiredSalary: 'RAL €35.000',
-      photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=60',
-      workExperiences: [
-        {
-          id: 'exp2-1',
-          companyName: 'Web Agency Milano',
-          role: 'Junior Frontend Developer',
-          startDate: '2023-02',
-          endDate: '2024-08',
-          description: 'Sviluppo interfacce in HTML, CSS e Javascript. Supporto al team senior.',
-          city: 'Milano'
-        },
-        {
-          id: 'exp2-2',
-          companyName: 'Digital Factory',
-          role: 'Frontend Developer (React)',
-          startDate: '2024-09',
-          endDate: '2026-07',
-          description: 'Responsabile dello sviluppo frontend di piattaforme e-commerce con React e Next.js.',
-          city: 'Milano'
-        }
-      ]
-    },
-    {
-      id: 'w3',
-      firstName: 'Elena',
-      lastName: 'Bianchi',
-      profession: 'Addetta Vendite',
-      city: 'Torino',
-      province: 'TO',
-      region: 'Piemonte',
-      educationLevel: 'DIPLOMA',
-      educationField: 'Liceo delle Scienze Umane',
-      skills: 'Assistenza Clienti, Visual Merchandising, Gestione Cassa, Inventario, Problem Solving',
-      certifications: 'Corso di Tecniche di Vendita Avanzate',
-      hasLicense: true,
-      hasCar: true,
-      availabilityStatus: 'DISPONIBILE_SUBITO',
-      maxDistanceKm: 25,
-      desiredContract: 'PART_TIME',
-      desiredSalary: '€1.000 - €1.200/mese',
-      photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=60',
-      workExperiences: [
-        {
-          id: 'exp3-1',
-          companyName: 'Moda & Stile',
-          role: 'Commessa Addetta Vendite',
-          startDate: '2024-03',
-          endDate: '2025-11',
-          description: 'Accoglienza clienti, gestione cassa e riordino merce nel reparto abbigliamento.',
-          city: 'Torino'
-        }
-      ]
-    }
-  ]);
+  setMockData('workers', []);
   setMockData('wp_pages', {
     home: {
       title: 'Benvenuti su Sono Qui',
@@ -219,7 +107,11 @@ const handleMockFallback = (method: string, path: string, body?: any) => {
   }
 
   if (path.startsWith('/auth/register')) {
-    const { email, role, profileData } = body;
+    const { email, password, role, profileData } = body;
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (password && !passwordRegex.test(password)) {
+      throw new Error('La password deve contenere almeno 8 caratteri, una lettera maiuscola, un numero e un simbolo.');
+    }
     const mockUser = { id: `u-${Math.random()}`, email, role };
     localStorage.setItem('sono_qui_token', 'mock-jwt-token-1234');
     if (role === 'COMPANY') {

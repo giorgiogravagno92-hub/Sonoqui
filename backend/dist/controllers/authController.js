@@ -15,6 +15,10 @@ const register = async (req, res) => {
         if (!email || !password || !role) {
             return res.status(404).json({ error: 'Email, password and role are required' });
         }
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ error: 'La password deve contenere almeno 8 caratteri, una lettera maiuscola, un numero e un simbolo.' });
+        }
         if (!['WORKER', 'COMPANY', 'ADMIN'].includes(role)) {
             return res.status(400).json({ error: 'Invalid role' });
         }
@@ -35,37 +39,53 @@ const register = async (req, res) => {
                 }
             });
             if (role === 'WORKER') {
-                await tx.workerProfile.create({
+                const wp = await tx.workerProfile.create({
                     data: {
                         userId: newUser.id,
                         firstName: profileData?.firstName || 'Nuovo',
                         lastName: profileData?.lastName || 'Candidato',
-                        city: profileData?.city || 'Roma',
-                        province: profileData?.province || 'RM',
-                        region: profileData?.region || 'Lazio',
-                        profession: profileData?.profession || 'Impiegato',
+                        city: profileData?.city || '',
+                        province: profileData?.province || '',
+                        sigla: profileData?.sigla || '',
+                        region: profileData?.region || '',
+                        profession: profileData?.profession || '',
                         skills: profileData?.skills || 'Nessuna',
+                        educationLevel: profileData?.educationLevel || 'NESSUNO',
+                        educationTitles: profileData?.educationTitles || '[]',
                         availabilityStatus: 'VALUTO_OFFERTE',
                         desiredContract: profileData?.desiredContract || 'TEMPO_INDETERMINATO'
                     }
                 });
+                if (Array.isArray(profileData?.workExperiences)) {
+                    for (const exp of profileData.workExperiences) {
+                        await tx.workExperience.create({
+                            data: {
+                                workerProfileId: wp.id,
+                                companyName: exp.companyName,
+                                role: exp.role,
+                                startDate: exp.startDate,
+                                endDate: exp.endDate || null,
+                                description: exp.description || '',
+                                city: exp.city || null,
+                                province: exp.province || null,
+                                sigla: exp.sigla || null
+                            }
+                        });
+                    }
+                }
             }
             else if (role === 'COMPANY') {
-                const companyType = profileData?.companyType || 'AZIENDA';
                 await tx.companyProfile.create({
                     data: {
                         userId: newUser.id,
-                        companyType,
-                        companyName: companyType === 'AZIENDA' ? (profileData?.companyName || 'Nuova Azienda') : null,
-                        address: companyType === 'AZIENDA' ? profileData?.address : null,
-                        vatNumber: companyType === 'AZIENDA' ? profileData?.vatNumber : null,
-                        firstName: companyType === 'PERSONA_FISICA' ? profileData?.firstName : null,
-                        lastName: companyType === 'PERSONA_FISICA' ? profileData?.lastName : null,
-                        residenzaCapCitta: companyType === 'PERSONA_FISICA' ? profileData?.residenzaCapCitta : null,
-                        fiscalCode: companyType === 'PERSONA_FISICA' ? profileData?.fiscalCode : null,
-                        industry: 'Altro',
-                        city: companyType === 'AZIENDA' ? 'Roma' : (profileData?.residenzaCapCitta || 'Roma'),
-                        contactPerson: companyType === 'AZIENDA' ? 'Referente' : `${profileData?.firstName} ${profileData?.lastName}`,
+                        companyType: 'AZIENDA',
+                        companyName: profileData?.companyName || 'Nuova Azienda',
+                        address: profileData?.address || null,
+                        city: profileData?.city || null,
+                        province: profileData?.province || null,
+                        sigla: profileData?.sigla || null,
+                        industry: profileData?.sector || profileData?.industry || 'Altro',
+                        contactPerson: profileData?.companyName || 'Referente',
                     }
                 });
             }

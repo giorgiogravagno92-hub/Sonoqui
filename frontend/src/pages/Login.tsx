@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../utils/api';
-import { CITIES, PROVINCE_SIGLE, COMPANY_SECTORS } from '../utils/constants';
+import { CITIES, PROVINCE_SIGLE, COMPANY_SECTORS, PROFESSIONS, REGIONS_AND_PROVINCES } from '../utils/constants';
 
 interface LoginProps {
   initialRole: string; // 'WORKER' or 'COMPANY'
@@ -13,6 +13,23 @@ const formatCapitalizedWords = (str: string) => {
     .split(' ')
     .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
     .join(' ');
+};
+
+const validatePassword = (pass: string): string | null => {
+  if (pass.length < 8) return 'La password deve contenere almeno 8 caratteri.';
+  if (!/[A-Z]/.test(pass)) return 'La password deve contenere almeno una lettera maiuscola.';
+  if (!/\d/.test(pass)) return 'La password deve contenere almeno un numero.';
+  if (!/[^A-Za-z0-9]/.test(pass)) return 'La password deve contenere almeno un simbolo.';
+  return null;
+};
+
+const findRegionByProvince = (provinceName: string): string => {
+  for (const [region, provinces] of Object.entries(REGIONS_AND_PROVINCES)) {
+    if (Array.isArray(provinces) && provinces.includes(provinceName)) {
+      return region;
+    }
+  }
+  return 'Lazio';
 };
 
 export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => {
@@ -31,6 +48,26 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Candidate Curriculum states
+  const [profession, setProfession] = useState('');
+  const [noEducation, setNoEducation] = useState(false);
+  const [educationTitles, setEducationTitles] = useState<any[]>([]);
+  const [noExperience, setNoExperience] = useState(false);
+  const [workExperiences, setWorkExperiences] = useState<any[]>([]);
+
+  // Temp states to add education/experience items
+  const [newEduLevel, setNewEduLevel] = useState('DIPLOMA');
+  const [newEduField, setNewEduField] = useState('');
+  const [newEduConseguitoPresso, setNewEduConseguitoPresso] = useState('');
+  const [newEduInData, setNewEduInData] = useState('');
+
+  const [newExpCompany, setNewExpCompany] = useState('');
+  const [newExpRole, setNewExpRole] = useState('');
+  const [newExpStartDate, setNewExpStartDate] = useState('');
+  const [newExpEndDate, setNewExpEndDate] = useState('');
+  const [newExpDesc, setNewExpDesc] = useState('');
+  const [newExpCity, setNewExpCity] = useState('');
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +81,14 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
         const res = await api.auth.login({ email, password });
         onLoginSuccess(res.user, res.token);
       } else {
-        // Registration
+        // Registration password complexity check
+        const passErr = validatePassword(password);
+        if (passErr) {
+          setError(passErr);
+          setLoading(false);
+          return;
+        }
+
         let profileData: any = {};
         if (role === 'COMPANY') {
           profileData.companyName = companyName;
@@ -55,6 +99,12 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
           profileData.sector = sector;
           profileData.industry = sector;
         } else {
+          // Worker registration checks: ONLY Nome and Cognome
+          if (!firstName.trim() || !lastName.trim()) {
+            setError('Nome e Cognome sono obbligatori.');
+            setLoading(false);
+            return;
+          }
           profileData.firstName = firstName;
           profileData.lastName = lastName;
         }
@@ -111,7 +161,7 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
           {!isLogin && role === 'WORKER' && (
             <div className="form-control-row" style={{ marginBottom: '20px' }}>
               <div>
-                <label className="form-label">Nome</label>
+                <label className="form-label">Nome *</label>
                 <input 
                   type="text" 
                   className="form-control" 
@@ -121,7 +171,7 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
                 />
               </div>
               <div>
-                <label className="form-label">Cognome</label>
+                <label className="form-label">Cognome *</label>
                 <input 
                   type="text" 
                   className="form-control" 
@@ -141,7 +191,7 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
                   type="text" 
                   className="form-control" 
                   value={companyName} 
-                  onChange={(e) => setCompanyName(e.target.value)} 
+                  onChange={(e) => setCompanyName(formatCapitalizedWords(e.target.value))} 
                   required 
                 />
               </div>
@@ -231,7 +281,7 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
             />
           </div>
 
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: isLogin ? '20px' : '10px' }}>
             <label className="form-label">Password</label>
             <input 
               type="password" 
@@ -241,6 +291,11 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
               placeholder="••••••••"
               required 
             />
+            {!isLogin && (
+              <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: '1.3' }}>
+                🔒 La password deve contenere almeno 8 caratteri, una lettera maiuscola, un numero e un simbolo.
+              </span>
+            )}
           </div>
 
           <button 
@@ -302,13 +357,7 @@ export const Login: React.FC<LoginProps> = ({ initialRole, onLoginSuccess }) => 
           </div>
         </div>
 
-        {/* Demo Accounts Notice */}
-        <div style={{ marginTop: '24px', padding: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          💡 <strong>Account di test rapidi:</strong><br />
-          • Candidato: <code>mario.rossi@email.it</code> / <code>password123</code><br />
-          • Azienda: <code>azienda@innovate.it</code> / <code>password123</code><br />
-          • Admin: <code>admin@sonoqui.it</code> / <code>password123</code>
-        </div>
+
       </div>
     </div>
   );
